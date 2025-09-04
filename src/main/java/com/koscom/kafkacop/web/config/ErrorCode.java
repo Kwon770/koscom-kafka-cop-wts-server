@@ -1,0 +1,26 @@
+package com.koscom.kafkacop.web.config;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+
+@Getter
+@RequiredArgsConstructor
+public enum ErrorCode {
+    /**
+     * Common Errors
+     */
+    UNKNOWN_SERVER_ERROR("CM0001", "Unknown Server Error"),
+    INVALID_INPUT_VALUE("CM0002", "Invalid Input Value"),
+    METHOD_NOT_ALLOWED("CM0003", "Method Not Allowed"),
+    ACCESS_DENIED("CM0004", "Access Denied"),
+
+
+    /**
+     * Kafka Related Errors
+     */
+    KAFKA_PRODUCER_ERROR("KF0001", "Kafka Producer 오류가 발생했습니다."),
+    KAFKA_MESSAGE_SEND_ERROR("KF0002", "Kafka 메시지 전송에 실패했습니다.");
+
+    private final String code;
+    private final String message;
+}
