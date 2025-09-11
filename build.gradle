@@ -22,10 +22,10 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-actuator'
 	implementation 'org.springframework.boot:spring-boot-starter-web'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
-	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.0.2'
 	implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
 	implementation 'org.springframework.boot:spring-boot-starter-webflux'
 	implementation 'com.fasterxml.jackson.datatype:jackson-datatype-jsr310'
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.0.2'
 
 	runtimeOnly 'com.h2database:h2'
 	runtimeOnly 'org.mariadb.jdbc:mariadb-java-client'
@@ -36,8 +36,6 @@ dependencies {
 	implementation 'com.github.f4b6a3:ulid-creator:5.2.2'
 	implementation 'org.jsoup:jsoup:1.17.2'
 
-
-	implementation 'com.google.api-client:google-api-client:2.2.0'
 
 	implementation 'com.querydsl:querydsl-jpa:5.0.0:jakarta'
 	annotationProcessor 'com.querydsl:querydsl-apt:5.0.0:jakarta'
@@ -55,15 +53,32 @@ tasks.named('test') {
 }
 
 jib {
+	def imageTag = System.getenv("IMAGE_TAG")
+	def serverPort = "8080"
+	def activeProfile = System.getenv("ACTIVE_PROFILE")
+	def imageName = System.getenv("IMAGE_NAME")
 	from {
-		image = 'openjdk:21'
+		image = 'eclipse-temurin:21-jdk'
 	}
 	to {
-		image = 'koscom-kafka-cop-producer-was'
+		image = imageName + ':latest'
+		tags = ['latest', imageTag]
 	}
 	container {
-		jvmFlags = ['-Xms512m', '-Xmx1024m']
-		mainClass = 'com.koscom.kafkacop.KafkacopApplication'
-		ports = ['8080']
+		jvmFlags = [
+				'-Dspring.profiles.active=' + activeProfile,
+				'-Dserver.port=' + serverPort,
+				'-Xms3400M',
+				'-Xmx3400M',
+				'-XX:+UseG1GC',
+				'-XX:+UseContainerSupport',
+				'-XX:MaxGCPauseMillis=400',
+				'-XX:+DisableExplicitGC',
+				'-XX:+AlwaysPreTouch', //미리 영역 채우기
+				'-Duser.timezone=Asia/Seoul', //타임존
+				'-Dfile.encoding=UTF-8',
+				'-server'
+		]
+		ports = [serverPort]
 	}
 }

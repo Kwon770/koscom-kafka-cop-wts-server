@@ -1,62 +1,41 @@
-server:
-  port: 8080
-
 spring:
   datasource:
-    driver-class-name: org.mariadb.jdbc.Driver
-    url: jdbc:mariadb://localhost:3306/kafkacop_db
-    username: ${DB_USERNAME:kafkacop_user}
-    password: ${DB_PASSWORD:kafkacop_password}
+    url: ${MYSQL_URL}
+    username: ${MYSQL_USERNAME}
+    password: ${MYSQL_PASSWORD}
     hikari:
-      maximum-pool-size: 10
-      minimum-idle: 5
-      idle-timeout: 300000
+      auto-commit: false
+      minimum-idle: 15
+      maximum-pool-size: 30
+      connection-timeout: 60000
       max-lifetime: 1800000
-      connection-timeout: 20000
-  
+      idle-timeout: 60000
+      data-source-properties:
+        cachePrepStmts: true
+        prepStmtCacheSize: 250
+        prepStmtCacheSqlLimit: 2048
+        useServerPrepStmts: true
   jpa:
     hibernate:
       ddl-auto: validate
     properties:
       hibernate:
-        format_sql: false
+        create_empty_composites:
+          enabled: true
         show_sql: false
-    open-in-view: false
-  
+        format_sql: false
+  h2:
+    console:
+      enabled: false
 
 logging:
-  level:
-    root: INFO
-    com.koscom.kafkacop: INFO
-    org.hibernate.SQL: OFF
-    org.hibernate.type.descriptor.sql.BasicBinder: OFF
-  
   pattern:
-    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
-    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
-  
-  file:
-    name: logs/kafkacop-producer.log
-    max-size: 100MB
-    max-history: 30
+    console: "%X{requestId} %clr([${LOG_LEVEL_PATTERN:%5p}]) %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"
+  level:
+    com.koscom: INFO
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,metrics,prometheus
-  endpoint:
-    health:
-      show-details: always
-  
-  metrics:
-    export:
-      prometheus:
-        enabled: true
-
-springdoc:
-  api-docs:
-    path: /v3/api-docs
-  swagger-ui:
-    path: /swagger-ui.html
-    enabled: false
+        include: health,info,prometheus

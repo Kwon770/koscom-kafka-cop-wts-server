@@ -1,0 +1,149 @@
+name: 🚀 KOSCOM Kafka COP Producer Production CI/CD
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  ENVIRONMENT: prod
+  IMAGE_NAME: sckwon770/koscom-kafka-cop-producer
+  SERVICE_NAME: koscom-kafka-cop-producer
+
+jobs:
+  prepare-variables:
+    name: 워크플로우 변수 준비
+    runs-on: ubuntu-latest
+    outputs:
+      image-name: ${{ steps.setup-env.outputs.image-name }}
+      image-tag: ${{ steps.setup-env.outputs.image-tag }}
+      environment: ${{ steps.setup-env.outputs.environment }}
+      service-name: ${{ steps.setup-env.outputs.service-name }}
+    steps:
+      - name: GitHub에서 레포 받아오기
+        uses: actions/checkout@v4
+
+      - name: 변수 설정
+        id: setup-env
+        run: |
+          echo "image-name=${{ env.IMAGE_NAME }}" >> $GITHUB_OUTPUT
+          echo "image-tag=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          echo "environment=${{ env.ENVIRONMENT }}" >> $GITHUB_OUTPUT
+          echo "service-name=${{ env.SERVICE_NAME }}" >> $GITHUB_OUTPUT
+
+  build-and-push:
+    name: 이미지 빌드 및 푸시
+    runs-on: ubuntu-latest
+    needs: [prepare-variables]
+    outputs:
+      image-url: ${{ steps.build-image.outputs.image-url }}
+    
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: 워크플로우 시작 알림
+        if: success()
+        run: |
+          echo "🚀 Production 배포 워크플로우가 시작되었습니다."
+          echo "배포 환경: ${{ needs.prepare-variables.outputs.environment }}"
+          echo "배포자: ${{ github.event.pusher.name }}"
+          echo "이미지: ${{ needs.prepare-variables.outputs.image-name }}:${{ needs.prepare-variables.outputs.image-tag }}"
+
+      - name: GitHub에서 레포 받아오기
+        uses: actions/checkout@v4
+
+      - name: JDK 21 설정
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Docker Hub에 로그인
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      - name: Gradle 권한 설정
+        run: chmod +x ./gradlew
+
+      - name: Gradle 빌드 및 테스트
+        run: ./gradlew clean build test
+
+      - name: Jib로 이미지 빌드 및 푸시
+        id: build-image
+        run: |
+          echo "🔨 Jib을 사용하여 Docker 이미지 빌드 및 푸시 시작..."
+          ./gradlew jib \
+            -Djib.to.image=${{ needs.prepare-variables.outputs.image-name }}:${{ needs.prepare-variables.outputs.image-tag }} \
+            -Djib.to.tags=latest \
+            -Dspring.profiles.active=prod
+          
+          echo "image-url=${{ needs.prepare-variables.outputs.image-name }}:${{ needs.prepare-variables.outputs.image-tag }}" >> $GITHUB_OUTPUT
+          echo "✅ 이미지 빌드 및 푸시 완료: ${{ needs.prepare-variables.outputs.image-name }}:${{ needs.prepare-variables.outputs.image-tag }}"
+
+      - name: 빌드 성공 알림
+        if: success()
+        run: |
+          echo "✅ Production 이미지 빌드 성공!"
+          echo "이미지: ${{ steps.build-image.outputs.image-url }}"
+
+      - name: 빌드 실패 알림
+        if: failure()
+        run: |
+          echo "❌ Production 이미지 빌드 실패!"
+          echo "Workflow 링크: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+  deploy:
+    name: 서버 배포
+    runs-on: ubuntu-latest
+    needs: [prepare-variables, build-and-push]
+    if: success()
+    environment: production
+    
+    permissions:
+      contents: read
+
+    steps:
+      - name: GitHub에서 레포 받아오기
+        uses: actions/checkout@v4
+
+      - name: 서버 배포 실행
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          key: ${{ secrets.SSH_SSH_KEY }}
+          port: ${{ secrets.SSH_PORT }}
+          script: |
+            cd /home/ec2-user/wts/was
+            echo "🚀 KOSCOM Kafka COP Producer 배포 시작..."
+            
+            # 기존 컨테이너 정리
+            if [ "$(docker ps -q -f name=${{ needs.prepare-variables.outputs.service-name }})" ]; then
+              echo "기존 컨테이너 중지 및 제거 중..."
+              docker stop ${{ needs.prepare-variables.outputs.service-name }}
+              docker rm ${{ needs.prepare-variables.outputs.service-name }}
+            fi
+            
+            # 새 이미지 Pull
+            echo "새 이미지 다운로드 중..."
+            docker pull ${{ needs.prepare-variables.outputs.image-name }}:${{ needs.prepare-variables.outputs.image-tag }}
+            
+            # 새 컨테이너 실행
+            echo "새 컨테이너 실행 중..."
+            docker run -d \
+              --name ${{ needs.prepare-variables.outputs.service-name }} \
+              --restart unless-stopped \
+              -p 8080:8080 \
+              -e SPRING_PROFILES_ACTIVE=prod \
+              ${{ needs.prepare-variables.outputs.image-name }}:${{ needs.prepare-variables.outputs.image-tag }}
+            
+            # 이미지 정리
+            echo "사용하지 않는 이미지 정리 중..."
+            docker image prune -a -f
+            
+            echo "✅ 배포 완료!"

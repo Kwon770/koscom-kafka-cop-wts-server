@@ -1,29 +1,32 @@
 package com.koscom.kafkacop.util;
 
-import jakarta.persistence.Column;
-import jakarta.persistence.MappedSuperclass;
-import lombok.Getter;
-import lombok.Setter;
-
 import java.time.LocalDateTime;
 
-@Getter
-@Setter
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.EntityListeners;
+import jakarta.persistence.MappedSuperclass;
+import lombok.Getter;
+
+@EntityListeners(AuditingEntityListener.class)
 @MappedSuperclass
-public abstract class DeletableBaseEntity extends BaseEntity {
+@Getter
+public class DeletableBaseEntity extends BaseEntity {
 
     @Column(name = "deleted_at")
     private LocalDateTime deletedAt;
 
-    public boolean isDeleted() {
-        return deletedAt != null;
-    }
+    @Column(name = "IS_DELETED", nullable = false)
+    private Boolean isDeleted = false;
 
     public void delete() {
         this.deletedAt = LocalDateTime.now();
+        isDeleted = true;
     }
 
     public void restore() {
         this.deletedAt = null;
+        isDeleted = false;
     }
 }
