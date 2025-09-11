@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# KOSCOM Kafka COP Producer Jib Build Script
+# KOSCOM Kafka COP Consumer Jib Build Script
 imageName=$1
 imageTag=$2
 profile=${3:-prod}

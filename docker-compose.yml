@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  koscom-kafka-cop-producer:
-    image: ${IMAGE_NAME:-koscom-kafka-cop-producer}:${IMAGE_TAG:-latest}
-    container_name: koscom-kafka-cop-producer
+  koscom-kafka-cop-consumer:
+    image: ${IMAGE_NAME:-koscom-kafka-cop-consumer}:${IMAGE_TAG:-latest}
+    container_name: koscom-kafka-cop-consumer
     restart: unless-stopped
     ports:
       - "8080:8080"

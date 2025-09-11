@@ -1,4 +1,4 @@
-name: 🚀 KOSCOM Kafka COP Producer Production CI/CD
+name: 🚀 KOSCOM Kafka COP Consumer Production CI/CD
 
 on:
   push:
@@ -7,8 +7,8 @@ on:
 
 env:
   ENVIRONMENT: prod
-  IMAGE_NAME: sckwon770/koscom-kafka-cop-producer
-  SERVICE_NAME: koscom-kafka-cop-producer
+  IMAGE_NAME: sckwon770/koscom-kafka-cop-consumer
+  SERVICE_NAME: koscom-kafka-cop-consumer
 
 jobs:
   prepare-variables:
@@ -120,7 +120,7 @@ jobs:
           port: ${{ secrets.SSH_PORT }}
           script: |
             cd /home/ec2-user/wts/was
-            echo "🚀 KOSCOM Kafka COP Producer 배포 시작..."
+            echo "🚀 KOSCOM Kafka COP Consumer 배포 시작..."
             
             # 기존 컨테이너 정리
             if [ "$(docker ps -q -f name=${{ needs.prepare-variables.outputs.service-name }})" ]; then

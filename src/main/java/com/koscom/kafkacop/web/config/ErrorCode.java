@@ -14,13 +14,6 @@ public enum ErrorCode {
     METHOD_NOT_ALLOWED("CM0003", "Method Not Allowed"),
     ACCESS_DENIED("CM0004", "Access Denied"),
 
-
-    /**
-     * Kafka Related Errors
-     */
-    KAFKA_PRODUCER_ERROR("KF0001", "Kafka Producer 오류가 발생했습니다."),
-    KAFKA_MESSAGE_SEND_ERROR("KF0002", "Kafka 메시지 전송에 실패했습니다.");
-
     private final String code;
     private final String message;
 }
