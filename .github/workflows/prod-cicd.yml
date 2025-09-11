@@ -139,6 +139,7 @@ jobs:
               --name ${{ needs.prepare-variables.outputs.service-name }} \
               --restart unless-stopped \
               -p 8080:8080 \
+              --env-file .env \
               -e SPRING_PROFILES_ACTIVE=prod \
               ${{ needs.prepare-variables.outputs.image-name }}:${{ needs.prepare-variables.outputs.image-tag }}
             
