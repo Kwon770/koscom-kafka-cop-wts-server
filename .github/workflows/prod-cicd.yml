@@ -7,8 +7,8 @@ on:
 
 env:
   ENVIRONMENT: prod
-  IMAGE_NAME: sckwon770/koscom-kafka-cop-consumer
-  SERVICE_NAME: koscom-kafka-cop-consumer
+  IMAGE_NAME: sckwon770/koscom-kafka-cop-wts-was
+  SERVICE_NAME: koscom-kafka-cop-wts-was
 
 jobs:
   prepare-variables:
