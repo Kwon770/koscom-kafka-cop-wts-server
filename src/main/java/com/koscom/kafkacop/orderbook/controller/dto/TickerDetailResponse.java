@@ -1,8 +1,8 @@
-package com.koscom.kafkacop.market.controller.dto;
+package com.koscom.kafkacop.orderbook.controller.dto;
 
 import java.time.LocalDateTime;
 
-public record CoinElementResponse(
+public record TickerDetailResponse(
 	Integer tickerId,
 	String tickerCode,
 	String tickerName,
@@ -12,7 +12,7 @@ public record CoinElementResponse(
 	Float accTradePrice,
 	LocalDateTime localDateTime
 ) {
-	public static CoinElementResponse of(
+	public static TickerDetailResponse of(
 		Integer tickerId,
 		String tickerCode,
 		String tickerName,
@@ -22,7 +22,7 @@ public record CoinElementResponse(
 		Float accTradePrice,
 		LocalDateTime localDateTime
 	) {
-		return new CoinElementResponse(
+		return new TickerDetailResponse(
 			tickerId,
 			tickerCode,
 			tickerName,
