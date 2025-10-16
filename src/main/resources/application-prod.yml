@@ -24,6 +24,7 @@ spring:
           enabled: true
         show_sql: false
         format_sql: false
+        dialect: org.hibernate.dialect.MySQLDialect
   h2:
     console:
       enabled: false
