@@ -1,6 +1,5 @@
-package com.koscom.kafkacop.marketdata.domain;
+package com.koscom.kafkacop.market.domain;
 
-import com.koscom.kafkacop.reference.domain.RefMarket;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;

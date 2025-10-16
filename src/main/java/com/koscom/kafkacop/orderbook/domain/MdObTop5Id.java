@@ -1,5 +1,6 @@
-package com.koscom.kafkacop.marketdata.domain;
+package com.koscom.kafkacop.orderbook.domain;
 
+import jakarta.persistence.Embeddable;
 import lombok.*;
 
 import java.io.Serializable;

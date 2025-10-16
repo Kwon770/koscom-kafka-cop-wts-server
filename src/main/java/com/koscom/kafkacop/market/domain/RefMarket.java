@@ -1,4 +1,4 @@
-package com.koscom.kafkacop.reference.domain;
+package com.koscom.kafkacop.market.domain;
 
 import jakarta.persistence.*;
 import lombok.AccessLevel;
