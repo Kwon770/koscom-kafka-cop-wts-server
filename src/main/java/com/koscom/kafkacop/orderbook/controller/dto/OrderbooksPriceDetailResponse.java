@@ -6,21 +6,21 @@ import com.koscom.kafkacop.orderbook.domain.BidAskType;
 
 public record OrderbooksPriceDetailResponse(
 	BidAskType type,
-	LocalDateTime localDateTime,
 	Float price,
-	Float quantity
+	Float quantity,
+	LocalDateTime localDateTime
 ) {
 	public static OrderbooksPriceDetailResponse of(
 		BidAskType type,
-		LocalDateTime localDateTime,
 		Float price,
-		Float quantity
+		Float quantity,
+		LocalDateTime localDateTime
 	) {
 		return new OrderbooksPriceDetailResponse(
 			type,
-			localDateTime,
 			price,
-			quantity
+			quantity,
+			localDateTime
 		);
 	}
 }
