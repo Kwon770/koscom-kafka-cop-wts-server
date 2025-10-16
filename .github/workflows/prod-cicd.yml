@@ -75,6 +75,8 @@ jobs:
 
       - name: Jib로 이미지 빌드 및 푸시
         id: build-image
+        env:
+          ACTIVE_PROFILE: prod
         run: |
           echo "🔨 Jib을 사용하여 Docker 이미지 빌드 및 푸시 시작..."
           ./gradlew jib \
