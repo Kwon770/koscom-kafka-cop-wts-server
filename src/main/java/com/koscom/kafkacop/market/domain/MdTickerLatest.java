@@ -73,7 +73,7 @@ public class MdTickerLatest {
     /**
      * 24시간 누적 거래대금
      */
-    @Column(name = "24h_acc_trade_price_24h", precision = 38, scale = 8)
+    @Column(name = "acc_trade_price_24h", precision = 38, scale = 8)
     private BigDecimal accTradePrice24h;
 
     /**
