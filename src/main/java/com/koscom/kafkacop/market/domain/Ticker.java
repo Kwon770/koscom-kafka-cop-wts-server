@@ -11,19 +11,20 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
- * 티커 최신 상태 테이블 (마켓당 1행)
+ * 티커 이력 테이블 (마켓당 시간별 다행)
  */
 @Entity
 @Table(
-    name = "md_ticker_latest",
+    name = "md_ticker",
     indexes = {
         @Index(name = "ix_ticker_code", columnList = "code"),
         @Index(name = "ix_ticker_updated", columnList = "updated_at")
     }
 )
+@IdClass(TickerId.class)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class MdTickerLatest {
+public class Ticker {
 
     /**
      * 마켓ID (PK + FK)
@@ -33,12 +34,18 @@ public class MdTickerLatest {
     private Integer marketId;
 
     /**
-     * 마켓 참조 (1:1)
+     * 원본 데이터 생성 시각 (PK)
      */
-    @OneToOne(fetch = FetchType.LAZY)
-    @MapsId
-    @JoinColumn(name = "market_id", foreignKey = @ForeignKey(name = "fk_ticker_market"))
-    private RefMarket market;
+    @Id
+    @Column(name = "source_created_at", columnDefinition = "DATETIME(6)", nullable = false)
+    private LocalDateTime sourceCreatedAt;
+
+    /**
+     * 마켓 참조 (N:1)
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "market_id", foreignKey = @ForeignKey(name = "fk_ticker_market"), insertable = false, updatable = false)
+    private Market market;
 
     /**
      * 원본 코드 (예: KRW-BTC)
@@ -84,11 +91,13 @@ public class MdTickerLatest {
     private LocalDateTime updatedAt;
 
     @Builder
-    public MdTickerLatest(RefMarket market, String code, BigDecimal tradePrice,
+    public Ticker(Market market, Integer marketId, LocalDateTime sourceCreatedAt,
+                          String code, BigDecimal tradePrice,
                           BigDecimal signedChangeRate, BigDecimal signedChangePrice,
                           BigDecimal accTradePrice, BigDecimal accTradePrice24h) {
         this.market = market;
-        this.marketId = market != null ? market.getMarketId() : null;
+        this.marketId = marketId != null ? marketId : (market != null ? market.getMarketId() : null);
+        this.sourceCreatedAt = sourceCreatedAt;
         this.code = code;
         this.tradePrice = tradePrice;
         this.signedChangeRate = signedChangeRate;
@@ -105,5 +114,9 @@ public class MdTickerLatest {
         this.signedChangePrice = signedChangePrice;
         this.accTradePrice = accTradePrice;
         this.accTradePrice24h = accTradePrice24h;
+    }
+
+    public void setSourceCreatedAt(LocalDateTime sourceCreatedAt) {
+        this.sourceCreatedAt = sourceCreatedAt;
     }
 }

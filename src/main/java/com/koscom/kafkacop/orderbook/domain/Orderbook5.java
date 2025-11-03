@@ -1,6 +1,6 @@
 package com.koscom.kafkacop.orderbook.domain;
 
-import com.koscom.kafkacop.market.domain.RefMarket;
+import com.koscom.kafkacop.market.domain.Market;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -8,7 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
  * 5호가 스냅샷 테이블 (ASK/BID 1~5)
@@ -18,18 +18,18 @@ import java.time.Instant;
     name = "md_ob_top5",
     indexes = {
         @Index(name = "ix_ob5_code", columnList = "code"),
-        @Index(name = "ix_ob5_latest", columnList = "market_id, timestamp")
+        @Index(name = "ix_ob5_latest", columnList = "market_id, orderbook_date_time")
     }
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class MdObTop5 {
+public class Orderbook5 {
 
     /**
-     * 복합 PK (market_id, timestamp)
+     * 복합 PK (market_id, orderbook_date_time)
      */
     @EmbeddedId
-    private MdObTop5Id id;
+    private Orderbook5Id id;
 
     /**
      * 마켓 참조 (FK)
@@ -37,7 +37,7 @@ public class MdObTop5 {
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("marketId")
     @JoinColumn(name = "market_id", nullable = false, foreignKey = @ForeignKey(name = "fk_ob_top5_market"))
-    private RefMarket market;
+    private Market market;
 
     /**
      * 마켓 코드
@@ -120,7 +120,7 @@ public class MdObTop5 {
     private BigDecimal bidQuantity5;
 
     @Builder
-    public MdObTop5(RefMarket market, Instant timestamp, String code,
+    public Orderbook5(Market market, LocalDateTime orderbookDateTime, String code,
                     BigDecimal totalAskSize, BigDecimal totalBidSize,
                     BigDecimal askPrice1, BigDecimal askQuantity1,
                     BigDecimal askPrice2, BigDecimal askQuantity2,
@@ -132,9 +132,9 @@ public class MdObTop5 {
                     BigDecimal bidPrice3, BigDecimal bidQuantity3,
                     BigDecimal bidPrice4, BigDecimal bidQuantity4,
                     BigDecimal bidPrice5, BigDecimal bidQuantity5) {
-        this.id = new MdObTop5Id(
+        this.id = new Orderbook5Id(
             market != null ? market.getMarketId() : null,
-            timestamp
+			orderbookDateTime
         );
         this.market = market;
         this.code = code;

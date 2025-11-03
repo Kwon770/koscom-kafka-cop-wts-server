@@ -24,7 +24,6 @@ import org.springframework.kafka.support.serializer.JsonDeserializer;
 import com.koscom.kafkacop.kafka.dto.CandleSecondMessage;
 import com.koscom.kafkacop.kafka.dto.Orderbook5Message;
 import com.koscom.kafkacop.kafka.dto.TickerBasicMessage;
-import com.koscom.kafkacop.kafka.dto.TickerExtendMessage;
 
 @EnableKafka
 @Configuration
@@ -60,13 +59,6 @@ public class KafkaConfig {
 	}
 
 	@Bean
-	public ConsumerFactory<String, TickerExtendMessage> tickerExtendedConsumerFactory(KafkaProperties kafkaProperties, SslBundles sslBundles) {
-		Map<String, Object> props = getBaseConsumerProps(kafkaProperties, sslBundles);
-		props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, TickerExtendMessage.class.getName());
-		return new DefaultKafkaConsumerFactory<>(props);
-	}
-
-	@Bean
 	public ProducerFactory<String, Object> producerFactory(KafkaProperties kafkaProperties, SslBundles sslBundles) {
 		Map<String, Object> props = kafkaProperties.buildProducerProperties(sslBundles);
 		return new DefaultKafkaProducerFactory<>(props);
@@ -82,7 +74,7 @@ public class KafkaConfig {
 	) {
 		ConcurrentKafkaListenerContainerFactory<String, T> factory = new ConcurrentKafkaListenerContainerFactory<>();
 		factory.setConsumerFactory(consumerFactory);
-		factory.setBatchListener(true);
+		factory.setBatchListener(false); // 단건 소비로 변경 (즉시 SSE 전송 + 배치 DB 저장)
 
 		// Acknowledgment 파라미터 사용을 위해 MANUAL 모드 설정
 		factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);
@@ -124,12 +116,5 @@ public class KafkaConfig {
 		ConsumerFactory<String, Orderbook5Message> orderbook5ConsumerFactory, KafkaTemplate<String, Object> kafkaTemplate
 	) {
 		return createContainerFactory(orderbook5ConsumerFactory, kafkaTemplate);
-	}
-
-	@Bean
-	public ConcurrentKafkaListenerContainerFactory<String, TickerExtendMessage> tickerExtendedListenerContainerFactory(
-		ConsumerFactory<String, TickerExtendMessage> tickerExtendedConsumerFactory, KafkaTemplate<String, Object> kafkaTemplate
-	) {
-		return createContainerFactory(tickerExtendedConsumerFactory, kafkaTemplate);
 	}
 }

@@ -1,6 +1,6 @@
 package com.koscom.kafkacop.chart.domain;
 
-import com.koscom.kafkacop.market.domain.RefMarket;
+import com.koscom.kafkacop.market.domain.Market;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -15,20 +15,20 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(
-    name = "md_candle_sec",
+    name = "md_candle",
     indexes = {
-        @Index(name = "ix_csec_code_kst", columnList = "code, candle_date_time_kst")
+        @Index(name = "ix_csec_code_kst", columnList = "code, candle_date_time")
     }
 )
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class MdCandleSec {
+public class Candle {
 
     /**
-     * 복합 PK (market_id, candle_date_time_kst)
+     * 복합 PK (market_id, candle_date_time)
      */
     @EmbeddedId
-    private MdCandleSecId id;
+    private CandleId id;
 
     /**
      * 마켓 참조 (FK)
@@ -36,7 +36,7 @@ public class MdCandleSec {
     @ManyToOne(fetch = FetchType.LAZY)
     @MapsId("marketId")
     @JoinColumn(name = "market_id", nullable = false, foreignKey = @ForeignKey(name = "fk_candle_sec_market"))
-    private RefMarket market;
+    private Market market;
 
     /**
      * 마켓 코드
@@ -87,11 +87,11 @@ public class MdCandleSec {
     private BigDecimal candleAccTradePrice;
 
     @Builder
-    public MdCandleSec(RefMarket market, LocalDateTime candleDateTimeKst, String code,
+    public Candle(Market market, LocalDateTime candleDateTimeKst, String code,
                        String type, BigDecimal openingPrice, BigDecimal highPrice,
                        BigDecimal lowPrice, BigDecimal tradePrice,
                        BigDecimal candleAccTradeVolume, BigDecimal candleAccTradePrice) {
-        this.id = new MdCandleSecId(
+        this.id = new CandleId(
             market != null ? market.getMarketId() : null,
             candleDateTimeKst
         );

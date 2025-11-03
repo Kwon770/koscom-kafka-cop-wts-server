@@ -2,41 +2,41 @@ spring:
   application:
     name: koscom-kafka-cop-wts-was
   datasource:
-    url: jdbc:h2:mem:koscomkafka;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password:
+    url: jdbc:mysql://localhost:3306/marketdb?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Seoul
+    username: admin
+    password: admin
+    driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
       ddl-auto: update
+    defer-datasource-initialization: false
     properties:
       hibernate:
         show_sql: false
         format_sql: false
+        dialect: org.hibernate.dialect.MySQL8Dialect
         jdbc:
           batch_size: 1000
           order_inserts: true
           order_updates: true
-  #        dialect: org.hibernate.dialect.MySQL8Dialect
-  h2:
-    console:
-      enabled: true
-      settings:
-        web-allow-others: true
+  sql:
+    init:
+      mode: never
 
   kafka:
     bootstrap-servers: kafka.kafka.dwer.kr:9092
     consumer:
       group-id: coin-wts-consumer
       enable-auto-commit: false
-      auto-offset-reset: earliest
+      auto-offset-reset: latest   # earliest는 개발 시 과거 데이터 재처리로 큐 오버플로우 발생
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       properties:
         spring.json.trusted.packages: "*"
     listener:
-      type: batch             # 배치 리스너
+      type: single            # batch → single (단건 소비 패턴)
       ack-mode: MANUAL_IMMEDIATE
-      concurrency: 3
+      concurrency: 3   # 컨슈머 스레드 수 증가 (1 → 3): 파티션별 병렬 처리
 
 server:
   shutdown: graceful
@@ -54,7 +54,7 @@ logging:
   pattern:
     console: "- %X{requestId} %clr(%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd'T'HH:mm:ss.SSSXXX}}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"
   level:
-    com.koscom: DEBUG
+    com.koscom: INFO  # DEBUG → INFO (과도한 로깅 방지)
 
 app:
   web:

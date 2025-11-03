@@ -10,10 +10,15 @@ import lombok.NoArgsConstructor;
  * 거래소 기준 테이블
  */
 @Entity
-@Table(name = "ref_exchange")
+@Table(
+    name = "ref_exchange",
+    indexes = {
+        @Index(name = "ix_exchange_code", columnList = "exchange_code")
+    }
+)
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class RefExchange {
+public class Exchange {
 
     /**
      * 거래소ID (PK, Auto Increment)
@@ -30,7 +35,7 @@ public class RefExchange {
     private String exchangeCode;
 
     @Builder
-    public RefExchange(String exchangeCode) {
+    public Exchange(String exchangeCode) {
         this.exchangeCode = exchangeCode;
     }
 }

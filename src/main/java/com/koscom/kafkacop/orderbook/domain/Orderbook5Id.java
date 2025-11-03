@@ -1,20 +1,21 @@
 package com.koscom.kafkacop.orderbook.domain;
 
+import jakarta.persistence.Column;
 import jakarta.persistence.Embeddable;
 import lombok.*;
 
 import java.io.Serializable;
-import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
- * MdObTop5의 복합키
+ * Orderbook5의 복합키
  */
 @Embeddable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @EqualsAndHashCode
-public class MdObTop5Id implements Serializable {
+public class Orderbook5Id implements Serializable {
 
     /**
      * 마켓ID
@@ -22,7 +23,8 @@ public class MdObTop5Id implements Serializable {
     private Integer marketId;
 
     /**
-     * 타임스탬프 (밀리초 단위)
+     * 호가 일시 (KST)
      */
-    private Instant timestamp;
+	@Column(name = "orderbook_date_time", columnDefinition = "datetime(6)")
+    private LocalDateTime orderbookDateTime;
 }

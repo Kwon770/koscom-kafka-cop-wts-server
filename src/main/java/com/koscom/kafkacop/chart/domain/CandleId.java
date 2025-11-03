@@ -7,14 +7,14 @@ import java.io.Serializable;
 import java.time.LocalDateTime;
 
 /**
- * MdCandleSec의 복합키
+ * Candle의 복합키
  */
 @Embeddable
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @AllArgsConstructor
 @EqualsAndHashCode
-public class MdCandleSecId implements Serializable {
+public class CandleId implements Serializable {
 
     /**
      * 마켓ID
@@ -24,5 +24,5 @@ public class MdCandleSecId implements Serializable {
     /**
      * 캔들 일시 (KST)
      */
-    private LocalDateTime candleDateTimeKst;
+    private LocalDateTime candleDateTime;
 }

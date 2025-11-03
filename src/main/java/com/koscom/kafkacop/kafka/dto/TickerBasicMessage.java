@@ -22,6 +22,12 @@ public record TickerBasicMessage(
         @JsonProperty("signed_change_rate")
         double signedChangeRate,
 
+        @JsonProperty("acc_trade_price")
+        double accTradePrice,
+
+        @JsonProperty("acc_trade_price_24h")
+        double accTradePrice24h,
+
         @JsonProperty("timestamp")
         long timestamp
 ) {

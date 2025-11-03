@@ -28,6 +28,9 @@ spring:
   h2:
     console:
       enabled: false
+  sql:
+    init:
+      mode: never                      # prod에서는 절대 실행 금지
 
 logging:
   pattern:
