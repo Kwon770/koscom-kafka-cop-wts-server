@@ -45,10 +45,11 @@ public class Candle {
     private String code;
 
     /**
-     * 타입 (예: candle.1s)
+     * 타입 (예: 1s, 1m, 1h, 1d)
      */
-    @Column(name = "type", length = 20, columnDefinition = "varchar(20) default 'candle.1s'")
-    private String type;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", length = 20, columnDefinition = "varchar(20) default '1s'")
+    private CandleType type;
 
     /**
      * 시가
@@ -88,7 +89,7 @@ public class Candle {
 
     @Builder
     public Candle(Market market, LocalDateTime candleDateTimeKst, String code,
-                       String type, BigDecimal openingPrice, BigDecimal highPrice,
+                       CandleType type, BigDecimal openingPrice, BigDecimal highPrice,
                        BigDecimal lowPrice, BigDecimal tradePrice,
                        BigDecimal candleAccTradeVolume, BigDecimal candleAccTradePrice) {
         this.id = new CandleId(
@@ -97,7 +98,7 @@ public class Candle {
         );
         this.market = market;
         this.code = code;
-        this.type = type != null ? type : "candle.1s";
+        this.type = type != null ? type : CandleType.ONE_SECOND;
         this.openingPrice = openingPrice;
         this.highPrice = highPrice;
         this.lowPrice = lowPrice;

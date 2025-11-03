@@ -100,7 +100,7 @@ public class CandleSecondBatchWriter implements BatchAccumulator.BatchWriter<Can
 			ps.setInt(idx++, market.getMarketId());
 			ps.setObject(idx++, candleKst);
 			ps.setString(idx++, marketCode);
-			ps.setString(idx++, "candle.1s");
+			ps.setString(idx++, "1s");  // CandleType.ONE_SECOND
 			ps.setBigDecimal(idx++, BigDecimal.valueOf(msg.openingPrice()));
 			ps.setBigDecimal(idx++, BigDecimal.valueOf(msg.highPrice()));
 			ps.setBigDecimal(idx++, BigDecimal.valueOf(msg.lowPrice()));
