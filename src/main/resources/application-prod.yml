@@ -37,6 +37,10 @@ spring:
       group-id: coin-wts-consumer-prod
       enable-auto-commit: false
       auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: "*"
     listener:
       type: single            # batch → single (단건 소비 패턴)
       ack-mode: MANUAL_IMMEDIATE
