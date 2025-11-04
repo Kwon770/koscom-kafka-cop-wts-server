@@ -3,6 +3,7 @@ package com.koscom.kafkacop.kafka.batch;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.kafka.core.KafkaTemplate;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -26,22 +27,28 @@ public class BatchAccumulator<T> {
 	// === 구성 요소 ===
 	private final BlockingQueue<T> queue;
 	private final List<T> buffer;
-	private final BatchWriter<T> writer; // DB upsert 수행
+	private final BatchWriter<T> writer;                // DB upsert 수행
+	private final String sourceTopic;                   // 원본 토픽명 (DLT 전송용)
+	private final KafkaTemplate<String, Object> kafkaTemplate;  // DLT 전송용
 
 	private ExecutorService coordinatorExecutor;        // 배치 수집 스레드
 	private ExecutorService flushExecutorPool;          // 배치 flush 스레드 풀
 	private volatile boolean running = true;
 
-	public BatchAccumulator(BatchWriter<T> writer, int batchSize, Duration maxLatency, int queueCapacity) {
-		this(writer, batchSize, maxLatency, queueCapacity, 3);  // 기본 3개 워커
+	public BatchAccumulator(BatchWriter<T> writer, int batchSize, Duration maxLatency, int queueCapacity,
+	                        String sourceTopic, KafkaTemplate<String, Object> kafkaTemplate) {
+		this(writer, batchSize, maxLatency, queueCapacity, 3, sourceTopic, kafkaTemplate);  // 기본 3개 워커
 	}
 
-	public BatchAccumulator(BatchWriter<T> writer, int batchSize, Duration maxLatency, int queueCapacity, int workerThreadCount) {
+	public BatchAccumulator(BatchWriter<T> writer, int batchSize, Duration maxLatency, int queueCapacity,
+	                        int workerThreadCount, String sourceTopic, KafkaTemplate<String, Object> kafkaTemplate) {
 		this.writer = writer;
 		this.batchSize = batchSize;
 		this.maxLatency = maxLatency;
 		this.queueCapacity = queueCapacity;
 		this.workerThreadCount = workerThreadCount;
+		this.sourceTopic = sourceTopic;
+		this.kafkaTemplate = kafkaTemplate;
 		this.queue = new ArrayBlockingQueue<>(queueCapacity);
 		this.buffer = new ArrayList<>(batchSize);
 	}
@@ -165,8 +172,36 @@ public class BatchAccumulator<T> {
 				sleepQuiet(50L * attempt);
 			}
 		}
-		// 최종 실패 처리: 조각내기/파일로 백업/알람 등 선택
-		log.error("Permanent failure after {} attempts; consider DLT/persist fallback", maxRetry);
+		// 최종 실패 시 DLT로 전송
+		log.error("Permanent failure after {} attempts; sending {} messages to DLT", maxRetry, batch.size());
+		sendToDlt(batch);
+	}
+
+	/**
+	 * 최종 실패한 배치를 DLT(Dead Letter Topic)로 전송
+	 */
+	private void sendToDlt(List<T> batch) {
+		if (kafkaTemplate == null || sourceTopic == null) {
+			log.warn("KafkaTemplate or sourceTopic not configured; cannot send to DLT");
+			return;
+		}
+
+		String dltTopic = sourceTopic + ".DLT";
+		int successCount = 0;
+		int failureCount = 0;
+
+		for (T message : batch) {
+			try {
+				kafkaTemplate.send(dltTopic, message);
+				successCount++;
+			} catch (Exception e) {
+				log.error("Failed to send message to DLT topic={}", dltTopic, e);
+				failureCount++;
+			}
+		}
+
+		log.info("Sent {} messages to DLT topic={} (success={}, failure={})",
+			batch.size(), dltTopic, successCount, failureCount);
 	}
 
 	private void sleepQuiet(long ms) {
