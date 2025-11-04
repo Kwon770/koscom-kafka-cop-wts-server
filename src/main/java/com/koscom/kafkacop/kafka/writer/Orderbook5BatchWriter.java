@@ -39,6 +39,7 @@ public class Orderbook5BatchWriter implements BatchAccumulator.BatchWriter<Order
 			.filter(msg -> msg != null)
 			.filter(msg -> msg.mktCode() != null && !msg.mktCode().isEmpty())
 			.filter(msg -> msg.orderbookUnits() != null && msg.orderbookUnits().size() >= 5)
+			.filter(msg -> msg.timestamp() > 0)  // timestamp 검증 (PK의 일부)
 			.toList();
 
 		if (validBatch.isEmpty()) {

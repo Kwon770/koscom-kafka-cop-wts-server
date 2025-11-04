@@ -179,6 +179,8 @@ public class BatchAccumulator<T> {
 
 	/**
 	 * 최종 실패한 배치를 DLT(Dead Letter Topic)로 전송
+	 * - 각 메시지의 전체 value 데이터를 JSON으로 직렬화하여 전송
+	 * - 동기적으로 전송 결과를 확인하여 성공/실패 여부 판단
 	 */
 	private void sendToDlt(List<T> batch) {
 		if (kafkaTemplate == null || sourceTopic == null) {
@@ -192,10 +194,21 @@ public class BatchAccumulator<T> {
 
 		for (T message : batch) {
 			try {
-				kafkaTemplate.send(dltTopic, message);
+				// 동기적으로 전송하고 결과 확인 (블로킹)
+				// message 객체 전체가 JSON으로 직렬화되어 value로 전송됨
+				kafkaTemplate.send(dltTopic, message)
+					.whenComplete((result, ex) -> {
+						if (ex != null) {
+							log.error("Failed to send message to DLT topic={}, message={}", dltTopic, message, ex);
+						} else {
+							log.debug("Successfully sent message to DLT topic={}, offset={}",
+								dltTopic, result.getRecordMetadata().offset());
+						}
+					})
+					.get(5, TimeUnit.SECONDS);  // 최대 5초 대기
 				successCount++;
 			} catch (Exception e) {
-				log.error("Failed to send message to DLT topic={}", dltTopic, e);
+				log.error("Failed to send message to DLT topic={}, message={}", dltTopic, message, e);
 				failureCount++;
 			}
 		}

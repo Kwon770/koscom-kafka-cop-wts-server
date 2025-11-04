@@ -36,6 +36,7 @@ public class TickerBasicBatchWriter implements BatchAccumulator.BatchWriter<Tick
 		List<TickerBasicMessage> validBatch = batch.stream()
 			.filter(msg -> msg != null)
 			.filter(msg -> msg.mktCode() != null && !msg.mktCode().isEmpty())
+			.filter(msg -> msg.timestamp() > 0)  // timestamp 검증 (PK의 일부)
 			.toList();
 
 		if (validBatch.isEmpty()) {

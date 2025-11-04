@@ -37,7 +37,7 @@ public class CandleSecondBatchWriter implements BatchAccumulator.BatchWriter<Can
 		List<CandleSecondMessage> validBatch = batch.stream()
 			.filter(msg -> msg != null)
 			.filter(msg -> msg.mktCode() != null && !msg.mktCode().isEmpty())
-			.filter(msg -> msg.candleDateTimeKst() != null)
+			.filter(msg -> msg.candleDateTimeKst() != null && !msg.candleDateTimeKst().isEmpty())  // timestamp 검증 (PK의 일부)
 			.toList();
 
 		if (validBatch.isEmpty()) {
