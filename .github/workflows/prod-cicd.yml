@@ -123,30 +123,72 @@ jobs:
           script: |
             cd /home/ec2-user/wts/was
             echo "🚀 KOSCOM Kafka COP Consumer 배포 시작..."
-            
-            # 기존 컨테이너 정리
-            if [ "$(docker ps -q -f name=${{ needs.prepare-variables.outputs.service-name }})" ]; then
-              echo "기존 컨테이너 중지 및 제거 중..."
-              docker stop ${{ needs.prepare-variables.outputs.service-name }}
-              docker rm ${{ needs.prepare-variables.outputs.service-name }}
-            fi
-            
-            # 새 이미지 Pull
+
+            # 새 이미지 Pull (기존 컨테이너 중지 전에 미리 다운로드)
             echo "새 이미지 다운로드 중..."
             docker pull ${{ needs.prepare-variables.outputs.image-name }}:${{ needs.prepare-variables.outputs.image-tag }}
-            
+
+            # 기존 컨테이너 Graceful Shutdown
+            if [ "$(docker ps -q -f name=${{ needs.prepare-variables.outputs.service-name }})" ]; then
+              echo "⏸️  기존 컨테이너 Graceful Shutdown 시작..."
+
+              # SIGTERM 전송 후 5분 대기 (Kafka consumer close, batch flush 완료 대기)
+              # Spring Boot graceful shutdown이 작동할 수 있도록 충분한 시간 부여
+              docker stop --time=300 ${{ needs.prepare-variables.outputs.service-name }}
+
+              echo "✅ 기존 컨테이너 정상 종료 완료"
+
+              # 컨테이너 제거
+              docker rm ${{ needs.prepare-variables.outputs.service-name }}
+            else
+              echo "ℹ️  실행 중인 기존 컨테이너가 없습니다."
+            fi
+
             # 새 컨테이너 실행
-            echo "새 컨테이너 실행 중..."
+            echo "🚀 새 컨테이너 실행 중..."
             docker run -d \
               --name ${{ needs.prepare-variables.outputs.service-name }} \
               --restart unless-stopped \
               -p 8080:8080 \
               --env-file .env \
               -e SPRING_PROFILES_ACTIVE=prod \
+              --health-cmd="curl -f http://localhost:8080/actuator/health || exit 1" \
+              --health-interval=10s \
+              --health-timeout=5s \
+              --health-retries=3 \
+              --health-start-period=40s \
               ${{ needs.prepare-variables.outputs.image-name }}:${{ needs.prepare-variables.outputs.image-tag }}
-            
+
+            # 컨테이너 시작 대기 및 헬스체크
+            echo "⏳ 컨테이너 시작 대기 중..."
+            sleep 5
+
+            # 헬스체크 확인 (최대 10분 대기)
+            echo "🏥 헬스체크 확인 중..."
+            for i in {1..120}; do
+              if docker exec ${{ needs.prepare-variables.outputs.service-name }} curl -f http://localhost:8080/actuator/health > /dev/null 2>&1; then
+                echo "✅ 서비스 정상 기동 확인!"
+                break
+              fi
+
+              if [ $i -eq 12 ]; then
+                echo "❌ 헬스체크 실패! 컨테이너 로그 확인:"
+                docker logs --tail 50 ${{ needs.prepare-variables.outputs.service-name }}
+                exit 1
+              fi
+
+              echo "대기 중... ($i/12)"
+              sleep 5
+            done
+
+            # 컨테이너 상태 확인
+            echo "📊 컨테이너 상태:"
+            docker ps -f name=${{ needs.prepare-variables.outputs.service-name }}
+
             # 이미지 정리
-            echo "사용하지 않는 이미지 정리 중..."
+            echo "🧹 사용하지 않는 이미지 정리 중..."
             docker image prune -a -f
-            
+
             echo "✅ 배포 완료!"
+            echo "📝 최근 로그 확인:"
+            docker logs --tail 20 ${{ needs.prepare-variables.outputs.service-name }}
