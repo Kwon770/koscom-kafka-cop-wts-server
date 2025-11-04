@@ -1,4 +1,4 @@
-package com.koscom.kafkacop.kafka.batch;
+package com.koscom.kafkacop.kafka.writer;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;

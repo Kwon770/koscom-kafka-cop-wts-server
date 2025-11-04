@@ -1,9 +1,7 @@
-package com.koscom.kafkacop.kafka.batch.writer;
+package com.koscom.kafkacop.kafka.writer;
 
-import com.koscom.kafkacop.kafka.batch.BatchAccumulator;
 import com.koscom.kafkacop.kafka.dto.TickerBasicMessage;
 import com.koscom.kafkacop.market.domain.Market;
-import com.koscom.kafkacop.market.repository.TickerRepository;
 import com.koscom.kafkacop.market.repository.MarketRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;

@@ -1,11 +1,11 @@
-package com.koscom.kafkacop.kafka.config;
+package com.koscom.kafkacop.kafka.listener;
 
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
-import com.koscom.kafkacop.kafka.batch.BatchAccumulator;
+import com.koscom.kafkacop.kafka.writer.BatchAccumulator;
 import com.koscom.kafkacop.kafka.dto.CandleSecondMessage;
 import com.koscom.kafkacop.kafka.dto.Orderbook5Message;
 import com.koscom.kafkacop.kafka.dto.TickerBasicMessage;

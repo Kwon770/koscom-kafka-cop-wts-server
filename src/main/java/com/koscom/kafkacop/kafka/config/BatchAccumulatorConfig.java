@@ -1,9 +1,9 @@
 package com.koscom.kafkacop.kafka.config;
 
-import com.koscom.kafkacop.kafka.batch.BatchAccumulator;
-import com.koscom.kafkacop.kafka.batch.writer.CandleSecondBatchWriter;
-import com.koscom.kafkacop.kafka.batch.writer.Orderbook5BatchWriter;
-import com.koscom.kafkacop.kafka.batch.writer.TickerBasicBatchWriter;
+import com.koscom.kafkacop.kafka.writer.BatchAccumulator;
+import com.koscom.kafkacop.kafka.writer.CandleSecondBatchWriter;
+import com.koscom.kafkacop.kafka.writer.Orderbook5BatchWriter;
+import com.koscom.kafkacop.kafka.writer.TickerBasicBatchWriter;
 import com.koscom.kafkacop.kafka.dto.CandleSecondMessage;
 import com.koscom.kafkacop.kafka.dto.Orderbook5Message;
 import com.koscom.kafkacop.kafka.dto.TickerBasicMessage;

@@ -1,7 +1,5 @@
-package com.koscom.kafkacop.kafka.batch.writer;
+package com.koscom.kafkacop.kafka.writer;
 
-import com.koscom.kafkacop.chart.repository.CandleRepository;
-import com.koscom.kafkacop.kafka.batch.BatchAccumulator;
 import com.koscom.kafkacop.kafka.dto.CandleSecondMessage;
 import com.koscom.kafkacop.market.domain.Market;
 import com.koscom.kafkacop.market.repository.MarketRepository;
