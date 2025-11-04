@@ -1,6 +1,7 @@
 package com.koscom.kafkacop.kafka.writer;
 
 import com.koscom.kafkacop.kafka.dto.Orderbook5Message;
+import com.koscom.kafkacop.kafka.util.TimestampConverter;
 import com.koscom.kafkacop.market.domain.Market;
 import com.koscom.kafkacop.market.repository.MarketRepository;
 
@@ -12,9 +13,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -105,9 +104,8 @@ public class Orderbook5BatchWriter implements BatchAccumulator.BatchWriter<Order
 			Market market = marketMap.get(marketCode);
 			List<Orderbook5Message.OrderbookUnit> units = msg.orderbookUnits();
 
-			LocalDateTime orderbookDateTime = Instant.ofEpochMilli(msg.timestamp())
-				.atZone(ZoneId.of("Asia/Seoul"))
-				.toLocalDateTime();
+			// timestamp를 자동으로 마이크로초/밀리초 구분하여 KST LocalDateTime으로 변환
+			LocalDateTime orderbookDateTime = TimestampConverter.toLocalDateTimeKst(msg.timestamp());
 
 			int idx = 1;
 			ps.setInt(idx++, market.getMarketId());
