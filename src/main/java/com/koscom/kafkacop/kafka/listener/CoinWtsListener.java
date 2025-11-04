@@ -29,7 +29,7 @@ public class CoinWtsListener {
 	 * - 리스너에서는 SSE 브로드캐스트와 배치 누적만 수행 (지연 최소화)
 	 * - DB 저장은 별도 워커 스레드가 N/T 조건으로 배치 처리
 	 */
-	// @KafkaListener(topics = "ticker-basic", containerFactory = "tickerBasicListenerContainerFactory")
+	@KafkaListener(topics = "ticker-basic", containerFactory = "tickerBasicListenerContainerFactory")
 	public void onTickerBasic(ConsumerRecord<String, TickerBasicMessage> record, Acknowledgment ack) {
 		try {
 			TickerBasicMessage message = record.value();
@@ -50,7 +50,7 @@ public class CoinWtsListener {
 		}
 	}
 
-	// @KafkaListener(topics = "candel-1s", containerFactory = "candleSecondListenerContainerFactory")
+	@KafkaListener(topics = "candel-1s", containerFactory = "candleSecondListenerContainerFactory")
 	public void onCandleSecond(ConsumerRecord<String, CandleSecondMessage> record, Acknowledgment ack) {
 		try {
 			CandleSecondMessage message = record.value();
@@ -71,7 +71,7 @@ public class CoinWtsListener {
 		}
 	}
 
-	// @KafkaListener(topics = "orderbook-5", containerFactory = "orderbook5ListenerContainerFactory")
+	@KafkaListener(topics = "orderbook-5", containerFactory = "orderbook5ListenerContainerFactory")
 	public void onOrderbook5(ConsumerRecord<String, Orderbook5Message> record, Acknowledgment ack) {
 		try {
 			Orderbook5Message message = record.value();
