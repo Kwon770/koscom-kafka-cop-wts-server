@@ -40,12 +40,12 @@ public class ChartController {
 			@RequestParam(required = false, defaultValue = "1s")
 			String type,
 
-			@Parameter(description = "조회 시작 시간 (ISO-8601 형식)", example = "2024-11-04T00:00:00")
+			@Parameter(description = "조회 시작 시간 (ISO-8601 형식)", example = "2025-11-04T12:00:00")
 			@RequestParam(required = false)
 			@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
 			LocalDateTime from,
 
-			@Parameter(description = "조회 종료 시간 (ISO-8601 형식)", example = "2024-11-04T23:59:59")
+			@Parameter(description = "조회 종료 시간 (ISO-8601 형식)", example = "2025-11-04T12:59:59")
 			@RequestParam(required = false)
 			@DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
 			LocalDateTime to

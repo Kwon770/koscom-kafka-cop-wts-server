@@ -111,6 +111,6 @@ public class CandleSecondBatchWriter implements BatchAccumulator.BatchWriter<Can
 		if (skippedCount > 0) {
 			log.warn("Skipped {} invalid candle-1s messages", skippedCount);
 		}
-		log.info("Flushed {} candle-1s messages", processableBatch.size());
+		log.debug("Flushed {} candle-1s messages", processableBatch.size());
 	}
 }

@@ -144,6 +144,6 @@ public class Orderbook5BatchWriter implements BatchAccumulator.BatchWriter<Order
 		if (skippedCount > 0) {
 			log.warn("Skipped {} invalid orderbook-5 messages", skippedCount);
 		}
-		log.info("Flushed {} orderbook-5 messages", processableBatch.size());
+		log.debug("Flushed {} orderbook-5 messages", processableBatch.size());
 	}
 }

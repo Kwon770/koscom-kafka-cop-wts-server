@@ -50,8 +50,11 @@ public interface CandleRepository extends JpaRepository<Candle, CandleId> {
 
     /**
      * 거래소 코드, 마켓 코드, 타입으로 시간 범위 내의 캔들 조회 (오름차순)
+     * N+1 방지를 위해 FETCH JOIN 사용
      */
-    @Query("SELECT c FROM Candle c JOIN c.market m JOIN m.exchange e " +
+    @Query("SELECT c FROM Candle c " +
+           "JOIN FETCH c.market m " +
+           "JOIN FETCH m.exchange e " +
            "WHERE e.exchangeCode = :exchangeCode AND c.code = :code AND c.type = :type " +
            "AND c.id.candleDateTime >= :from AND c.id.candleDateTime < :to " +
            "ORDER BY c.id.candleDateTime ASC")

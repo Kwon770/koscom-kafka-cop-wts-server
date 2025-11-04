@@ -55,6 +55,9 @@ logging:
     console: "- %X{requestId} %clr(%d{${LOG_DATEFORMAT_PATTERN:-yyyy-MM-dd'T'HH:mm:ss.SSSXXX}}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr(${PID:- }){magenta} %clr(---){faint} %clr([%15.15t]){faint} %clr(%-40.40logger{39}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}"
   level:
     com.koscom: INFO  # DEBUG → INFO (과도한 로깅 방지)
+#    org.hibernate.SQL: debug                   # 실행된 SQL
+#    org.hibernate.orm.jdbc.bind: trace         # 바인딩된 파라미터 값 (Hibernate 6)
+#    org.hibernate.orm.jdbc.extract: trace      # (선택) ResultSet 추출 로그
 
 app:
   web:

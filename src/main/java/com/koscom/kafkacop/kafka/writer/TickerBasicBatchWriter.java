@@ -107,6 +107,6 @@ public class TickerBasicBatchWriter implements BatchAccumulator.BatchWriter<Tick
 		if (skippedCount > 0) {
 			log.warn("Skipped {} invalid ticker-basic messages", skippedCount);
 		}
-		log.info("Flushed {} ticker-basic messages", processableBatch.size());
+		log.debug("Flushed {} ticker-basic messages", processableBatch.size());
 	}
 }
