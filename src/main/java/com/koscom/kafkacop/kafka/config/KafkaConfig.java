@@ -3,6 +3,7 @@ package com.koscom.kafkacop.kafka.config;
 import java.util.Map;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
+import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.ssl.SslBundles;
@@ -20,6 +21,7 @@ import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
+import org.springframework.kafka.support.serializer.JsonSerializer;
 
 import com.koscom.kafkacop.kafka.dto.CandleSecondMessage;
 import com.koscom.kafkacop.kafka.dto.Orderbook5Message;
@@ -61,6 +63,8 @@ public class KafkaConfig {
 	@Bean
 	public ProducerFactory<String, Object> producerFactory(KafkaProperties kafkaProperties, SslBundles sslBundles) {
 		Map<String, Object> props = kafkaProperties.buildProducerProperties(sslBundles);
+		// DLT 전송을 위한 JsonSerializer 설정
+		props.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
 		return new DefaultKafkaProducerFactory<>(props);
 	}
 
