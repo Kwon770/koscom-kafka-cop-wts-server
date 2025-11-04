@@ -47,7 +47,7 @@ public class Candle {
     /**
      * 타입 (예: 1s, 1m, 1h, 1d)
      */
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = CandleTypeConverter.class)
     @Column(name = "type", length = 20, columnDefinition = "varchar(20) default '1s'")
     private CandleType type;
 

@@ -2,6 +2,7 @@ package com.koscom.kafkacop.chart.repository;
 
 import com.koscom.kafkacop.chart.domain.Candle;
 import com.koscom.kafkacop.chart.domain.CandleId;
+import com.koscom.kafkacop.chart.domain.CandleType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -9,6 +10,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 public interface CandleRepository extends JpaRepository<Candle, CandleId> {
 
@@ -44,5 +46,35 @@ public interface CandleRepository extends JpaRepository<Candle, CandleId> {
         @Param("tradePrice") BigDecimal tradePrice,
         @Param("candleAccTradeVolume") BigDecimal candleAccTradeVolume,
         @Param("candleAccTradePrice") BigDecimal candleAccTradePrice
+    );
+
+    /**
+     * 거래소 코드, 마켓 코드, 타입으로 시간 범위 내의 캔들 조회 (오름차순)
+     */
+    @Query("SELECT c FROM Candle c JOIN c.market m JOIN m.exchange e " +
+           "WHERE e.exchangeCode = :exchangeCode AND c.code = :code AND c.type = :type " +
+           "AND c.id.candleDateTime >= :from AND c.id.candleDateTime < :to " +
+           "ORDER BY c.id.candleDateTime ASC")
+    List<Candle> findByExchangeCodeAndCodeAndTypeAndDateTimeBetween(
+        @Param("exchangeCode") String exchangeCode,
+        @Param("code") String code,
+        @Param("type") CandleType type,
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to
+    );
+
+    /**
+     * 특정 마켓 코드와 타입으로 시간 범위 내의 캔들 조회 (오름차순)
+     * @deprecated exchange 파라미터를 함께 사용해야 함
+     */
+    @Deprecated
+    @Query("SELECT c FROM Candle c WHERE c.code = :code AND c.type = :type " +
+           "AND c.id.candleDateTime >= :from AND c.id.candleDateTime < :to " +
+           "ORDER BY c.id.candleDateTime ASC")
+    List<Candle> findByCodeAndTypeAndDateTimeBetween(
+        @Param("code") String code,
+        @Param("type") CandleType type,
+        @Param("from") LocalDateTime from,
+        @Param("to") LocalDateTime to
     );
 }

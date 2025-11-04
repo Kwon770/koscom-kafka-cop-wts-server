@@ -9,8 +9,43 @@ import org.springframework.data.repository.query.Param;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Optional;
 
 public interface Orderbook5Repository extends JpaRepository<Orderbook5, Orderbook5Id> {
+
+    /**
+     * 거래소 코드와 마켓 코드로 최신 오더북 조회
+     *
+     * @param exchangeCode 거래소 코드 (예: UPBIT)
+     * @param code 마켓 코드 (예: KRW/BTC)
+     * @return 최신 오더북
+     */
+    @Query("""
+        SELECT o FROM Orderbook5 o JOIN o.market m JOIN m.exchange e
+        WHERE e.exchangeCode = :exchangeCode AND o.code = :code
+        ORDER BY o.id.orderbookDateTime DESC
+        LIMIT 1
+        """)
+    Optional<Orderbook5> findLatestByExchangeCodeAndCode(
+        @Param("exchangeCode") String exchangeCode,
+        @Param("code") String code
+    );
+
+    /**
+     * 마켓 코드로 최신 오더북 조회
+     * @deprecated exchange 파라미터를 함께 사용해야 함
+     *
+     * @param code 마켓 코드 (예: KRW/BTC)
+     * @return 최신 오더북
+     */
+    @Deprecated
+    @Query("""
+        SELECT o FROM Orderbook5 o
+        WHERE o.code = :code
+        ORDER BY o.id.orderbookDateTime DESC
+        LIMIT 1
+        """)
+    Optional<Orderbook5> findLatestByCode(@Param("code") String code);
 
     @Modifying
     @Query(value = """

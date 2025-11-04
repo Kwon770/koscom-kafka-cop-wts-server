@@ -3,6 +3,8 @@ package com.koscom.kafkacop.chart.domain;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 
+import java.util.Arrays;
+
 /**
  * 캔들 타입 Enum
  */
@@ -23,4 +25,20 @@ public enum CandleType {
     ONE_MONTH("1M");
 
     private final String code;
+
+    /**
+     * code 값으로 CandleType을 찾는다
+     *
+     * @param code 캔들 타입 코드 (예: "1s", "1m", "5m")
+     * @return 해당하는 CandleType, 없으면 null
+     */
+    public static CandleType fromCode(String code) {
+        if (code == null) {
+            return null;
+        }
+        return Arrays.stream(values())
+                .filter(type -> type.code.equalsIgnoreCase(code))
+                .findFirst()
+                .orElse(null);
+    }
 }
