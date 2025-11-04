@@ -128,9 +128,10 @@ jobs:
             echo "새 이미지 다운로드 중..."
             docker pull ${{ needs.prepare-variables.outputs.image-name }}:${{ needs.prepare-variables.outputs.image-tag }}
 
-            # 기존 컨테이너 Graceful Shutdown
-            if [ "$(docker ps -q -f name=${{ needs.prepare-variables.outputs.service-name }})" ]; then
-              echo "⏸️  기존 컨테이너 Graceful Shutdown 시작..."
+            # 기존 컨테이너 정리 (실행 중 + stopped 모두 체크)
+            # name filter에 ^...$를 사용하여 정확한 이름 매치
+            if [ "$(docker ps -q -f name=^/${{ needs.prepare-variables.outputs.service-name }}$)" ]; then
+              echo "⏸️  실행 중인 기존 컨테이너 Graceful Shutdown 시작..."
 
               # SIGTERM 전송 후 5분 대기 (Kafka consumer close, batch flush 완료 대기)
               # Spring Boot graceful shutdown이 작동할 수 있도록 충분한 시간 부여
@@ -140,8 +141,12 @@ jobs:
 
               # 컨테이너 제거
               docker rm ${{ needs.prepare-variables.outputs.service-name }}
+            elif [ "$(docker ps -a -q -f name=^/${{ needs.prepare-variables.outputs.service-name }}$)" ]; then
+              echo "🗑️  Stopped 상태의 기존 컨테이너 제거 중..."
+              docker rm ${{ needs.prepare-variables.outputs.service-name }}
+              echo "✅ 기존 컨테이너 제거 완료"
             else
-              echo "ℹ️  실행 중인 기존 컨테이너가 없습니다."
+              echo "ℹ️  기존 컨테이너가 없습니다."
             fi
 
             # 새 컨테이너 실행
