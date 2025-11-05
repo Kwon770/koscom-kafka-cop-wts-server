@@ -7,6 +7,7 @@ import com.koscom.kafkacop.kafka.writer.TickerBasicBatchWriter;
 import com.koscom.kafkacop.kafka.dto.CandleSecondMessage;
 import com.koscom.kafkacop.kafka.dto.Orderbook5Message;
 import com.koscom.kafkacop.kafka.dto.TickerBasicMessage;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.KafkaTemplate;
@@ -16,16 +17,26 @@ import java.time.Duration;
 /**
  * BatchAccumulator 설정
  * - 각 메시지 타입별로 별도의 accumulator 생성
- * - 튜닝 파라미터: batchSize, maxLatency, queueCapacity
- * - DLT: 최종 실패 시 {topic}-dlt로 전송
+ * - 튜닝 파라미터: application.yml의 app.batch-accumulator에서 설정
+ * - DLT: 최종 실패 시 {topic}.DLT로 전송
  */
 @Configuration
 public class BatchAccumulatorConfig {
 
-	// === 튜닝 파라미터 ===
-	private static final int BATCH_SIZE = 3000;              // 배치 최대 개수 (1000 → 3000으로 증가)
-	private static final Duration MAX_LATENCY = Duration.ofMillis(100);
-	private static final int QUEUE_CAPACITY = 200_000;        // 내부 큐 용량 (100,000 → 200,000으로 증가)
+	@Value("${app.batch-accumulator.batch-size}")
+	private int batchSize;
+
+	@Value("${app.batch-accumulator.max-latency-ms}")
+	private long maxLatencyMs;
+
+	@Value("${app.batch-accumulator.queue-capacity}")
+	private int queueCapacity;
+
+	@Value("${app.batch-accumulator.worker-thread-count}")
+	private int workerThreadCount;
+
+	@Value("${app.batch-accumulator.coordinator-thread-count}")
+	private int coordinatorThreadCount;
 
 	@Bean
 	public BatchAccumulator<TickerBasicMessage> tickerBasicAccumulator(
@@ -34,9 +45,11 @@ public class BatchAccumulatorConfig {
 	) {
 		BatchAccumulator<TickerBasicMessage> accumulator = new BatchAccumulator<>(
 			writer,
-			BATCH_SIZE,
-			MAX_LATENCY,
-			QUEUE_CAPACITY,
+			batchSize,
+			Duration.ofMillis(maxLatencyMs),
+			queueCapacity,
+			workerThreadCount,
+			coordinatorThreadCount,
 			"ticker-basic",
 			kafkaTemplate
 		);
@@ -51,9 +64,11 @@ public class BatchAccumulatorConfig {
 	) {
 		BatchAccumulator<CandleSecondMessage> accumulator = new BatchAccumulator<>(
 			writer,
-			BATCH_SIZE,
-			MAX_LATENCY,
-			QUEUE_CAPACITY,
+			batchSize,
+			Duration.ofMillis(maxLatencyMs),
+			queueCapacity,
+			workerThreadCount,
+			coordinatorThreadCount,
 			"candel-1s",
 			kafkaTemplate
 		);
@@ -68,9 +83,11 @@ public class BatchAccumulatorConfig {
 	) {
 		BatchAccumulator<Orderbook5Message> accumulator = new BatchAccumulator<>(
 			writer,
-			BATCH_SIZE,
-			MAX_LATENCY,
-			QUEUE_CAPACITY,
+			batchSize,
+			Duration.ofMillis(maxLatencyMs),
+			queueCapacity,
+			workerThreadCount,
+			coordinatorThreadCount,
 			"orderbook-5",
 			kafkaTemplate
 		);

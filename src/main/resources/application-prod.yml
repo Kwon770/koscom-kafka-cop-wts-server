@@ -40,7 +40,15 @@ spring:
     listener:
       type: single            # batch → single (단건 소비 패턴)
       ack-mode: MANUAL_IMMEDIATE
-      concurrency: 3   # 컨슈머 스레드 수 증가 (1 → 3): 파티션별 병렬 처리
+      concurrency: 2   # 컨슈머 스레드 수 증가 (1 → 3): 파티션별 병렬 처리
+
+app:
+  batch-accumulator:
+    batch-size: 5000              # 배치 최대 개수 (프로덕션: 처리량 증가)
+    max-latency-ms: 100           # 배치 최대 대기시간 (ms)
+    queue-capacity: 200000        # 내부 큐 용량
+    worker-thread-count: 2        # 배치 flush 워커 스레드 수 (프로덕션: 증가)
+    coordinator-thread-count: 1   # 배치 수집 코디네이터 스레드 수 (권장: 1)
 
 logging:
   pattern:

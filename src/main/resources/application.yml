@@ -6,6 +6,13 @@ spring:
     username: admin
     password: admin
     driver-class-name: com.mysql.cj.jdbc.Driver
+    hikari:
+      auto-commit: false
+      minimum-idle: 10
+      maximum-pool-size: 30
+      connection-timeout: 30000
+      max-lifetime: 1800000
+      idle-timeout: 600000
   jpa:
     hibernate:
       ddl-auto: update
@@ -60,6 +67,12 @@ logging:
 #    org.hibernate.orm.jdbc.extract: trace      # (선택) ResultSet 추출 로그
 
 app:
+  batch-accumulator:
+    batch-size: 3000              # 배치 최대 개수
+    max-latency-ms: 100           # 배치 최대 대기시간 (ms)
+    queue-capacity: 200000        # 내부 큐 용량
+    worker-thread-count: 3        # 배치 flush 워커 스레드 수
+    coordinator-thread-count: 1   # 배치 수집 코디네이터 스레드 수 (권장: 1, thread-safety 주의)
   web:
     url-no-logging:
       - /h2-console/**

@@ -23,6 +23,7 @@ public class BatchAccumulator<T> {
 	private final Duration maxLatency;                  // T: 배치 최대 대기시간
 	private final int queueCapacity;                    // 내부 큐 용량(백프레셔 임계)
 	private final int workerThreadCount;                // 워커 스레드 수 (병렬 처리)
+	private final int coordinatorThreadCount;           // 코디네이터 스레드 수 (큐 소비)
 
 	// === 구성 요소 ===
 	private final BlockingQueue<T> queue;
@@ -37,16 +38,23 @@ public class BatchAccumulator<T> {
 
 	public BatchAccumulator(BatchWriter<T> writer, int batchSize, Duration maxLatency, int queueCapacity,
 	                        String sourceTopic, KafkaTemplate<String, Object> kafkaTemplate) {
-		this(writer, batchSize, maxLatency, queueCapacity, 3, sourceTopic, kafkaTemplate);  // 기본 3개 워커
+		this(writer, batchSize, maxLatency, queueCapacity, 3, 1, sourceTopic, kafkaTemplate);  // 기본 3개 워커, 1개 코디네이터
 	}
 
 	public BatchAccumulator(BatchWriter<T> writer, int batchSize, Duration maxLatency, int queueCapacity,
 	                        int workerThreadCount, String sourceTopic, KafkaTemplate<String, Object> kafkaTemplate) {
+		this(writer, batchSize, maxLatency, queueCapacity, workerThreadCount, 1, sourceTopic, kafkaTemplate);  // 기본 1개 코디네이터
+	}
+
+	public BatchAccumulator(BatchWriter<T> writer, int batchSize, Duration maxLatency, int queueCapacity,
+	                        int workerThreadCount, int coordinatorThreadCount,
+	                        String sourceTopic, KafkaTemplate<String, Object> kafkaTemplate) {
 		this.writer = writer;
 		this.batchSize = batchSize;
 		this.maxLatency = maxLatency;
 		this.queueCapacity = queueCapacity;
 		this.workerThreadCount = workerThreadCount;
+		this.coordinatorThreadCount = coordinatorThreadCount;
 		this.sourceTopic = sourceTopic;
 		this.kafkaTemplate = kafkaTemplate;
 		this.queue = new ArrayBlockingQueue<>(queueCapacity);
@@ -71,8 +79,14 @@ public class BatchAccumulator<T> {
 
 	@PostConstruct
 	public void start() {
-		// 1. 배치 수집 전담 스레드 (단일)
-		coordinatorExecutor = Executors.newSingleThreadExecutor(r -> {
+		// 경고: coordinator가 여러 개일 경우 buffer thread-safety 문제 발생 가능
+		if (coordinatorThreadCount > 1) {
+			log.warn("coordinatorThreadCount > 1 is experimental and may cause thread-safety issues with buffer. " +
+				"Recommended value is 1. Current value: {}", coordinatorThreadCount);
+		}
+
+		// 1. 배치 수집 코디네이터 스레드 풀
+		coordinatorExecutor = Executors.newFixedThreadPool(coordinatorThreadCount, r -> {
 			Thread t = new Thread(r, "batch-coordinator-" + System.identityHashCode(this));
 			t.setDaemon(true);
 			return t;
@@ -85,9 +99,14 @@ public class BatchAccumulator<T> {
 			return t;
 		});
 
-		coordinatorExecutor.submit(this::runLoop);
-		log.info("BatchAccumulator started: batchSize={}, maxLatency={}ms, queueCapacity={}, workerThreads={}",
-			batchSize, maxLatency.toMillis(), queueCapacity, workerThreadCount);
+		// 코디네이터 수만큼 runLoop 실행
+		for (int i = 0; i < coordinatorThreadCount; i++) {
+			coordinatorExecutor.submit(this::runLoop);
+		}
+
+		log.info("BatchAccumulator started: batchSize={}, maxLatency={}ms, queueCapacity={}, " +
+			"coordinatorThreads={}, workerThreads={}",
+			batchSize, maxLatency.toMillis(), queueCapacity, coordinatorThreadCount, workerThreadCount);
 	}
 
 	@PreDestroy
