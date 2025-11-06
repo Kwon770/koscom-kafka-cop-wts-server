@@ -172,6 +172,13 @@ public class BatchAccumulator<T> {
 
 	/** 리스너(단건 소비)에서 호출: 매우 빠르게 끝나야 함 */
 	public void add(T item) {
+		// DEBUG: null 체크 (ArrayBlockingQueue는 null을 허용하지 않으므로 NPE 발생)
+		if (item == null) {
+			log.error("[{}] CRITICAL: Attempting to add NULL item to accumulator! This will cause NPE. " +
+				"Caller should never pass null.", sourceTopic);
+			throw new NullPointerException("Cannot add null item to BatchAccumulator for topic: " + sourceTopic);
+		}
+
 		// 정책 1) 초고신뢰: 대기해서라도 반드시 적재 (offer with timeout)
 		boolean ok;
 		try {
@@ -179,6 +186,9 @@ public class BatchAccumulator<T> {
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 			ok = false;
+		} catch (NullPointerException e) {
+			log.error("[{}] NPE occurred while adding to queue - item was null!", sourceTopic, e);
+			throw e;
 		}
 		if (ok) {
 			messagesQueuedCounter.increment();

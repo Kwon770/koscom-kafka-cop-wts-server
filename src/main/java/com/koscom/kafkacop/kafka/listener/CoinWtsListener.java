@@ -72,6 +72,11 @@ public class CoinWtsListener {
 				return;
 			}
 
+			// DEBUG: accumulator에 추가하기 직전 null 체크 (이중 검증)
+			if (message == null) {
+				log.error("[ticker-basic] CRITICAL: message is null before add() - This should never happen!");
+			}
+
 			// 1) 즉시 SSE 브로드캐스트 (저지연)
 			sseBroadcaster.broadcast("ticker-basic", message);
 

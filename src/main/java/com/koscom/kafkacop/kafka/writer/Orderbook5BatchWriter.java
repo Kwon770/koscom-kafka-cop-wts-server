@@ -39,11 +39,15 @@ public class Orderbook5BatchWriter implements BatchAccumulator.BatchWriter<Order
 		AtomicInteger invalidMktCode = new AtomicInteger(0);
 		AtomicInteger invalidOrderbookUnits = new AtomicInteger(0);
 		AtomicInteger invalidTimestamp = new AtomicInteger(0);
+		AtomicInteger index = new AtomicInteger(0);
 
 		List<Orderbook5Message> validBatch = batch.stream()
 			.filter(msg -> {
+				int idx = index.getAndIncrement();
 				if (msg == null) {
 					nullMessages.incrementAndGet();
+					log.error("[Orderbook5] NULL message detected at batch index {}! batchSize={}, batchHashCode={}",
+						idx, batch.size(), System.identityHashCode(batch));
 					return false;
 				}
 				return true;

@@ -36,11 +36,15 @@ public class TickerBasicBatchWriter implements BatchAccumulator.BatchWriter<Tick
 		AtomicInteger nullMessages = new AtomicInteger(0);
 		AtomicInteger invalidMktCode = new AtomicInteger(0);
 		AtomicInteger invalidTimestamp = new AtomicInteger(0);
+		AtomicInteger index = new AtomicInteger(0);
 
 		List<TickerBasicMessage> validBatch = batch.stream()
 			.filter(msg -> {
+				int idx = index.getAndIncrement();
 				if (msg == null) {
 					nullMessages.incrementAndGet();
+					log.error("[TickerBasic] NULL message detected at batch index {}! batchSize={}, batchHashCode={}",
+						idx, batch.size(), System.identityHashCode(batch));
 					return false;
 				}
 				return true;
