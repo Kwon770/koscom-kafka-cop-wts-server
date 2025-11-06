@@ -5,6 +5,7 @@ import java.util.Map;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.serialization.StringDeserializer;
 import org.springframework.boot.autoconfigure.kafka.KafkaProperties;
 import org.springframework.boot.ssl.SslBundles;
 import org.springframework.context.annotation.Bean;
@@ -20,6 +21,7 @@ import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.ExponentialBackOffWithMaxRetries;
+import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 
@@ -42,21 +44,42 @@ public class KafkaConfig {
 	@Bean
 	public ConsumerFactory<String, TickerBasicMessage> tickerBasicConsumerFactory(KafkaProperties kafkaProperties, SslBundles sslBundles) {
 		Map<String, Object> props = getBaseConsumerProps(kafkaProperties, sslBundles);
+
+		// ErrorHandlingDeserializer로 감싸서 역직렬화 에러를 명시적으로 로깅
+		props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+		props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+		props.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
+		props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
 		props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, TickerBasicMessage.class.getName());
+
 		return new DefaultKafkaConsumerFactory<>(props);
 	}
 
 	@Bean
 	public ConsumerFactory<String, CandleSecondMessage> candleSecondConsumerFactory(KafkaProperties kafkaProperties, SslBundles sslBundles) {
 		Map<String, Object> props = getBaseConsumerProps(kafkaProperties, sslBundles);
+
+		// ErrorHandlingDeserializer로 감싸서 역직렬화 에러를 명시적으로 로깅
+		props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+		props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+		props.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
+		props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
 		props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, CandleSecondMessage.class.getName());
+
 		return new DefaultKafkaConsumerFactory<>(props);
 	}
 
 	@Bean
 	public ConsumerFactory<String, Orderbook5Message> orderbook5ConsumerFactory(KafkaProperties kafkaProperties, SslBundles sslBundles) {
 		Map<String, Object> props = getBaseConsumerProps(kafkaProperties, sslBundles);
+
+		// ErrorHandlingDeserializer로 감싸서 역직렬화 에러를 명시적으로 로깅
+		props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+		props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ErrorHandlingDeserializer.class);
+		props.put(ErrorHandlingDeserializer.KEY_DESERIALIZER_CLASS, StringDeserializer.class);
+		props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class);
 		props.put(JsonDeserializer.VALUE_DEFAULT_TYPE, Orderbook5Message.class.getName());
+
 		return new DefaultKafkaConsumerFactory<>(props);
 	}
 

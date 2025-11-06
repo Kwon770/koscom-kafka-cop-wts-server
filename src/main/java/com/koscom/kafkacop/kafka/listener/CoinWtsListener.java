@@ -61,6 +61,17 @@ public class CoinWtsListener {
 		try {
 			TickerBasicMessage message = record.value();
 
+			// 역직렬화 실패 감지 (null 체크)
+			if (message == null) {
+				log.error("[ticker-basic] Deserialization failed - NULL message received! " +
+					"topic={}, partition={}, offset={}, key={}, timestamp={}, headers={}",
+					record.topic(), record.partition(), record.offset(), record.key(),
+					record.timestamp(), record.headers());
+				// null 메시지는 처리 불가하므로 커밋하고 넘어감 (무한 재시도 방지)
+				ack.acknowledge();
+				return;
+			}
+
 			// 1) 즉시 SSE 브로드캐스트 (저지연)
 			sseBroadcaster.broadcast("ticker-basic", message);
 
@@ -85,6 +96,17 @@ public class CoinWtsListener {
 		try {
 			CandleSecondMessage message = record.value();
 
+			// 역직렬화 실패 감지 (null 체크)
+			if (message == null) {
+				log.error("[candel-1s] Deserialization failed - NULL message received! " +
+					"topic={}, partition={}, offset={}, key={}, timestamp={}, headers={}",
+					record.topic(), record.partition(), record.offset(), record.key(),
+					record.timestamp(), record.headers());
+				// null 메시지는 처리 불가하므로 커밋하고 넘어감 (무한 재시도 방지)
+				ack.acknowledge();
+				return;
+			}
+
 			// 1) 즉시 SSE 브로드캐스트
 			sseBroadcaster.broadcast("candel-1s", message);
 
@@ -108,6 +130,17 @@ public class CoinWtsListener {
 	public void onOrderbook5(ConsumerRecord<String, Orderbook5Message> record, Acknowledgment ack) {
 		try {
 			Orderbook5Message message = record.value();
+
+			// 역직렬화 실패 감지 (null 체크)
+			if (message == null) {
+				log.error("[orderbook-5] Deserialization failed - NULL message received! " +
+					"topic={}, partition={}, offset={}, key={}, timestamp={}, headers={}",
+					record.topic(), record.partition(), record.offset(), record.key(),
+					record.timestamp(), record.headers());
+				// null 메시지는 처리 불가하므로 커밋하고 넘어감 (무한 재시도 방지)
+				ack.acknowledge();
+				return;
+			}
 
 			// 1) 즉시 SSE 브로드캐스트
 			sseBroadcaster.broadcast("orderbook-5", message);
