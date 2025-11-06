@@ -95,12 +95,30 @@ public class BatchAccumulator<T> {
 	private void initializeMetrics() {
 		String topicTag = sourceTopic != null ? sourceTopic : "unknown";
 
-		// 큐 크기 게이지
+		// 큐 크기 게이지 (현재 큐에 대기 중인 메시지 수)
 		meterRegistry.gaugeCollectionSize(
 			"batch.accumulator.queue.size",
 			io.micrometer.core.instrument.Tags.of("topic", topicTag),
 			queue
 		);
+
+		// 큐 용량 게이지 (최대 큐 크기)
+		Gauge.builder("batch.accumulator.queue.capacity", () -> (double) queueCapacity)
+			.tag("topic", topicTag)
+			.description("Maximum capacity of the message queue")
+			.register(meterRegistry);
+
+		// 큐 사용률 게이지 (0.0 ~ 1.0, 즉 0% ~ 100%)
+		Gauge.builder("batch.accumulator.queue.usage_ratio", () -> (double) queue.size() / queueCapacity)
+			.tag("topic", topicTag)
+			.description("Queue usage ratio (0.0 to 1.0)")
+			.register(meterRegistry);
+
+		// 큐 여유 공간 게이지
+		Gauge.builder("batch.accumulator.queue.remaining", () -> (double) (queueCapacity - queue.size()))
+			.tag("topic", topicTag)
+			.description("Remaining space in the queue")
+			.register(meterRegistry);
 
 		// 카운터 초기화
 		messagesQueuedCounter = Counter.builder("batch.accumulator.messages.queued")
