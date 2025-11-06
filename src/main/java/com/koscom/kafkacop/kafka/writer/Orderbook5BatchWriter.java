@@ -16,6 +16,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -33,17 +34,57 @@ public class Orderbook5BatchWriter implements BatchAccumulator.BatchWriter<Order
 			return;
 		}
 
-		// 0. null 필터링 및 유효성 검증
+		// 0. null 필터링 및 유효성 검증 (스킵 원인 추적)
+		AtomicInteger nullMessages = new AtomicInteger(0);
+		AtomicInteger invalidMktCode = new AtomicInteger(0);
+		AtomicInteger invalidOrderbookUnits = new AtomicInteger(0);
+		AtomicInteger invalidTimestamp = new AtomicInteger(0);
+
 		List<Orderbook5Message> validBatch = batch.stream()
-			.filter(msg -> msg != null)
-			.filter(msg -> msg.mktCode() != null && !msg.mktCode().isEmpty())
-			.filter(msg -> msg.orderbookUnits() != null && msg.orderbookUnits().size() >= 5)
-			.filter(msg -> msg.timestamp() > 0)  // timestamp 검증 (PK의 일부)
+			.filter(msg -> {
+				if (msg == null) {
+					nullMessages.incrementAndGet();
+					return false;
+				}
+				return true;
+			})
+			.filter(msg -> {
+				if (msg.mktCode() == null || msg.mktCode().isEmpty()) {
+					invalidMktCode.incrementAndGet();
+					log.warn("[Orderbook5] Invalid mktCode: msg={}", msg);
+					return false;
+				}
+				return true;
+			})
+			.filter(msg -> {
+				if (msg.orderbookUnits() == null || msg.orderbookUnits().size() < 5) {
+					invalidOrderbookUnits.incrementAndGet();
+					log.warn("[Orderbook5] Invalid orderbookUnits (need 5): size={}, msg={}",
+						msg.orderbookUnits() != null ? msg.orderbookUnits().size() : 0, msg);
+					return false;
+				}
+				return true;
+			})
+			.filter(msg -> {
+				if (msg.timestamp() <= 0) {
+					invalidTimestamp.incrementAndGet();
+					log.warn("[Orderbook5] Invalid timestamp: timestamp={}, msg={}", msg.timestamp(), msg);
+					return false;
+				}
+				return true;
+			})
 			.toList();
 
 		if (validBatch.isEmpty()) {
-			log.warn("All messages in batch were null or invalid, skipping flush");
+			log.warn("[Orderbook5] All messages in batch were invalid (nullMsg={}, invalidMktCode={}, invalidUnits={}, invalidTimestamp={})",
+				nullMessages.get(), invalidMktCode.get(), invalidOrderbookUnits.get(), invalidTimestamp.get());
 			return;
+		}
+
+		// 스킵된 메시지 로깅
+		if (nullMessages.get() > 0 || invalidMktCode.get() > 0 || invalidOrderbookUnits.get() > 0 || invalidTimestamp.get() > 0) {
+			log.warn("[Orderbook5] Validation failed: nullMsg={}, invalidMktCode={}, invalidUnits={}, invalidTimestamp={}",
+				nullMessages.get(), invalidMktCode.get(), invalidOrderbookUnits.get(), invalidTimestamp.get());
 		}
 
 		// 1. 거래소명과 마켓코드 추출
@@ -59,17 +100,30 @@ public class Orderbook5BatchWriter implements BatchAccumulator.BatchWriter<Order
 			.stream()
 			.collect(Collectors.toMap(Market::getMarketCode, m -> m));
 
-		// 3. Market이 존재하는 메시지만 필터링
+		// 3. Market이 존재하는 메시지만 필터링 (Market 미존재 추적)
+		AtomicInteger marketNotFound = new AtomicInteger(0);
 		List<Orderbook5Message> processableBatch = validBatch.stream()
 			.filter(msg -> {
 				String marketCode = String.join("/", msg.mktCode());
-				return marketMap.containsKey(marketCode);
+				boolean exists = marketMap.containsKey(marketCode);
+				if (!exists) {
+					marketNotFound.incrementAndGet();
+					log.warn("[Orderbook5] Market not found in DB: marketCode={}, exchange={}, msg={}",
+						marketCode, exchangeCode, msg);
+				}
+				return exists;
 			})
 			.toList();
 
 		if (processableBatch.isEmpty()) {
-			log.warn("No valid markets found for batch, skipping flush");
+			log.warn("[Orderbook5] No valid markets found for batch (marketNotFound={}), skipping flush",
+				marketNotFound.get());
 			return;
+		}
+
+		// Market 미존재 메시지 로깅
+		if (marketNotFound.get() > 0) {
+			log.warn("[Orderbook5] Market not found: count={}", marketNotFound.get());
 		}
 
 		// 4. JDBC Batch UPSERT (진짜 배치 처리)
@@ -140,10 +194,12 @@ public class Orderbook5BatchWriter implements BatchAccumulator.BatchWriter<Order
 			ps.setBigDecimal(idx++, BigDecimal.valueOf(units.get(4).bidSize()));
 		});
 
-		int skippedCount = batch.size() - processableBatch.size();
-		if (skippedCount > 0) {
-			log.warn("Skipped {} invalid orderbook-5 messages", skippedCount);
+		int totalSkipped = batch.size() - processableBatch.size();
+		if (totalSkipped > 0) {
+			log.warn("[Orderbook5] SUMMARY - Skipped {}/{} messages: nullMsg={}, invalidMktCode={}, invalidUnits={}, invalidTimestamp={}, marketNotFound={}",
+				totalSkipped, batch.size(),
+				nullMessages.get(), invalidMktCode.get(), invalidOrderbookUnits.get(), invalidTimestamp.get(), marketNotFound.get());
 		}
-		log.debug("Flushed {} orderbook-5 messages", processableBatch.size());
+		log.debug("[Orderbook5] Flushed {} orderbook-5 messages", processableBatch.size());
 	}
 }
