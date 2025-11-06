@@ -79,7 +79,14 @@ jib {
 				'-XX:MaxGCPauseMillis=400',
 				'-XX:+DisableExplicitGC',
 				'-XX:+AlwaysPreTouch', //미리 영역 채우기
-				'-Duser.timezone=Asia/Seoul', //타임존
+				// GC 로깅 (메모리 누수 진단용)
+				'-Xlog:gc*:file=/var/log/gc.log:time,uptime,level,tags:filecount=5,filesize=100M',
+				'-XX:+HeapDumpOnOutOfMemoryError',
+				'-XX:HeapDumpPath=/var/log/heap_dump.hprof',
+				'-XX:+PrintGCDetails',
+				'-XX:+PrintGCDateStamps',
+				// 타임존 및 인코딩
+				'-Duser.timezone=Asia/Seoul',
 				'-Dfile.encoding=UTF-8',
 				'-server'
 		]
