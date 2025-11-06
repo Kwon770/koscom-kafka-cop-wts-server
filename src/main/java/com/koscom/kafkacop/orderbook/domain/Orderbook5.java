@@ -17,8 +17,7 @@ import java.time.LocalDateTime;
 @Table(
     name = "md_ob_top5",
     indexes = {
-        @Index(name = "ix_ob5_code", columnList = "code"),
-        @Index(name = "ix_ob5_latest", columnList = "market_id, orderbook_date_time")
+        @Index(name = "ix_ob5_code_time_desc", columnList = "code, orderbook_date_time DESC")
     }
 )
 @Getter

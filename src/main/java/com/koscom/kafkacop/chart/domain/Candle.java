@@ -17,7 +17,7 @@ import java.time.LocalDateTime;
 @Table(
     name = "md_candle",
     indexes = {
-        @Index(name = "ix_csec_code_kst", columnList = "code, candle_date_time")
+        @Index(name = "ix_candle_code_type_time", columnList = "code, type, candle_date_time")
     }
 )
 @Getter
