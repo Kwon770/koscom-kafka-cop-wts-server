@@ -40,14 +40,14 @@ spring:
     listener:
       type: single            # batch → single (단건 소비 패턴)
       ack-mode: MANUAL_IMMEDIATE
-      concurrency: 2   # 파티션별 쓰레드 수
+      concurrency: 1   # 파티션별 쓰레드 수
 
 app:
   batch-accumulator:
     batch-size: 5000              # 배치 최대 개수
     max-latency-ms: 100           # 배치 최대 대기시간 (ms)
     queue-capacity: 200000        # 내부 큐 용량
-    worker-thread-count: 4        # 배치 flush 워커 스레드 수
+    worker-thread-count: 3        # 배치 flush 워커 스레드 수
     coordinator-thread-count: 1   # 배치 수집 코디네이터 스레드 수 (권장: 1)
 
 logging:
