@@ -6,7 +6,7 @@ spring:
     hikari:
       auto-commit: false
       minimum-idle: 15
-      maximum-pool-size: 30
+      maximum-pool-size: 50
       connection-timeout: 60000
       max-lifetime: 1800000
       idle-timeout: 60000
@@ -47,7 +47,7 @@ app:
     batch-size: 5000              # 배치 최대 개수
     max-latency-ms: 100           # 배치 최대 대기시간 (ms)
     queue-capacity: 200000        # 내부 큐 용량
-    worker-thread-count: 3        # 배치 flush 워커 스레드 수
+    worker-thread-count: 15        # 배치 flush 워커 스레드 수
     coordinator-thread-count: 1   # 배치 수집 코디네이터 스레드 수 (권장: 1)
 
 logging:
