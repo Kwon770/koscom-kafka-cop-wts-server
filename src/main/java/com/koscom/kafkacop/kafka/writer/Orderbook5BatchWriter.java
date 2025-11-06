@@ -46,8 +46,8 @@ public class Orderbook5BatchWriter implements BatchAccumulator.BatchWriter<Order
 				int idx = index.getAndIncrement();
 				if (msg == null) {
 					nullMessages.incrementAndGet();
-					log.error("[Orderbook5] NULL message detected at batch index {}! batchSize={}, batchHashCode={}",
-						idx, batch.size(), System.identityHashCode(batch));
+					// log.error("[Orderbook5] NULL message detected at batch index {}! batchSize={}, batchHashCode={}",
+					// 	idx, batch.size(), System.identityHashCode(batch));
 					return false;
 				}
 				return true;

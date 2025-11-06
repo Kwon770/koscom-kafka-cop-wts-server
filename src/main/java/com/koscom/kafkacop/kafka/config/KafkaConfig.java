@@ -101,7 +101,7 @@ public class KafkaConfig {
 	) {
 		ConcurrentKafkaListenerContainerFactory<String, T> factory = new ConcurrentKafkaListenerContainerFactory<>();
 		factory.setConsumerFactory(consumerFactory);
-		factory.setBatchListener(false); // 단건 소비로 변경 (즉시 SSE 전송 + 배치 DB 저장)
+		factory.setBatchListener(true); // 배치 소비로 변경 (처리량 증가)
 
 		// Acknowledgment 파라미터 사용을 위해 MANUAL 모드 설정
 		factory.getContainerProperties().setAckMode(ContainerProperties.AckMode.MANUAL);

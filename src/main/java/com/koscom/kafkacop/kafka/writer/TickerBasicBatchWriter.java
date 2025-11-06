@@ -43,8 +43,8 @@ public class TickerBasicBatchWriter implements BatchAccumulator.BatchWriter<Tick
 				int idx = index.getAndIncrement();
 				if (msg == null) {
 					nullMessages.incrementAndGet();
-					log.error("[TickerBasic] NULL message detected at batch index {}! batchSize={}, batchHashCode={}",
-						idx, batch.size(), System.identityHashCode(batch));
+					// log.error("[TickerBasic] NULL message detected at batch index {}! batchSize={}, batchHashCode={}",
+					// 	idx, batch.size(), System.identityHashCode(batch));
 					return false;
 				}
 				return true;
