@@ -1,5 +1,8 @@
 package com.koscom.kafkacop.kafka.listener;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import jakarta.annotation.PostConstruct;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.kafka.support.Acknowledgment;
@@ -23,6 +26,30 @@ public class CoinWtsListener {
 	private final BatchAccumulator<TickerBasicMessage> tickerBasicAccumulator;
 	private final BatchAccumulator<CandleSecondMessage> candleSecondAccumulator;
 	private final BatchAccumulator<Orderbook5Message> orderbook5Accumulator;
+	private final MeterRegistry meterRegistry;
+
+	// 메트릭
+	private Counter tickerBasicConsumedCounter;
+	private Counter candleSecondConsumedCounter;
+	private Counter orderbook5ConsumedCounter;
+
+	@PostConstruct
+	public void initializeMetrics() {
+		tickerBasicConsumedCounter = Counter.builder("kafka.consumer.messages.consumed")
+			.tag("topic", "ticker-basic")
+			.description("Number of messages consumed from ticker-basic topic")
+			.register(meterRegistry);
+
+		candleSecondConsumedCounter = Counter.builder("kafka.consumer.messages.consumed")
+			.tag("topic", "candel-1s")
+			.description("Number of messages consumed from candel-1s topic")
+			.register(meterRegistry);
+
+		orderbook5ConsumedCounter = Counter.builder("kafka.consumer.messages.consumed")
+			.tag("topic", "orderbook-5")
+			.description("Number of messages consumed from orderbook-5 topic")
+			.register(meterRegistry);
+	}
 
 	/**
 	 * 단건 소비 → 즉시 SSE 전송 + 배치 DB 저장 패턴
@@ -42,6 +69,9 @@ public class CoinWtsListener {
 
 			// 3) 오프셋 커밋: SSE 전송 + 큐 적재 성공 = 처리 성공
 			ack.acknowledge();
+
+			// 4) 메트릭 기록
+			tickerBasicConsumedCounter.increment();
 
 			log.debug("Processed ticker-basic message: marketCode={}", String.join("/", message.mktCode()));
 		} catch (Exception e) {
@@ -64,6 +94,9 @@ public class CoinWtsListener {
 			// 3) 오프셋 커밋
 			ack.acknowledge();
 
+			// 4) 메트릭 기록
+			candleSecondConsumedCounter.increment();
+
 			log.debug("Processed candel-1s message: marketCode={}", String.join("/", message.mktCode()));
 		} catch (Exception e) {
 			log.error("Failed to process candel-1s message", e);
@@ -84,6 +117,9 @@ public class CoinWtsListener {
 
 			// 3) 오프셋 커밋
 			ack.acknowledge();
+
+			// 4) 메트릭 기록
+			orderbook5ConsumedCounter.increment();
 
 			log.debug("Processed orderbook-5 message: marketCode={}", String.join("/", message.mktCode()));
 		} catch (Exception e) {

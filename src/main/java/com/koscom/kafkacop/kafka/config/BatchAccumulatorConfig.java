@@ -7,6 +7,7 @@ import com.koscom.kafkacop.kafka.writer.TickerBasicBatchWriter;
 import com.koscom.kafkacop.kafka.dto.CandleSecondMessage;
 import com.koscom.kafkacop.kafka.dto.Orderbook5Message;
 import com.koscom.kafkacop.kafka.dto.TickerBasicMessage;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -41,7 +42,8 @@ public class BatchAccumulatorConfig {
 	@Bean
 	public BatchAccumulator<TickerBasicMessage> tickerBasicAccumulator(
 		TickerBasicBatchWriter writer,
-		KafkaTemplate<String, Object> kafkaTemplate
+		KafkaTemplate<String, Object> kafkaTemplate,
+		MeterRegistry meterRegistry
 	) {
 		BatchAccumulator<TickerBasicMessage> accumulator = new BatchAccumulator<>(
 			writer,
@@ -51,7 +53,8 @@ public class BatchAccumulatorConfig {
 			workerThreadCount,
 			coordinatorThreadCount,
 			"ticker-basic",
-			kafkaTemplate
+			kafkaTemplate,
+			meterRegistry
 		);
 		accumulator.start();
 		return accumulator;
@@ -60,7 +63,8 @@ public class BatchAccumulatorConfig {
 	@Bean
 	public BatchAccumulator<CandleSecondMessage> candleSecondAccumulator(
 		CandleSecondBatchWriter writer,
-		KafkaTemplate<String, Object> kafkaTemplate
+		KafkaTemplate<String, Object> kafkaTemplate,
+		MeterRegistry meterRegistry
 	) {
 		BatchAccumulator<CandleSecondMessage> accumulator = new BatchAccumulator<>(
 			writer,
@@ -70,7 +74,8 @@ public class BatchAccumulatorConfig {
 			workerThreadCount,
 			coordinatorThreadCount,
 			"candel-1s",
-			kafkaTemplate
+			kafkaTemplate,
+			meterRegistry
 		);
 		accumulator.start();
 		return accumulator;
@@ -79,7 +84,8 @@ public class BatchAccumulatorConfig {
 	@Bean
 	public BatchAccumulator<Orderbook5Message> orderbook5Accumulator(
 		Orderbook5BatchWriter writer,
-		KafkaTemplate<String, Object> kafkaTemplate
+		KafkaTemplate<String, Object> kafkaTemplate,
+		MeterRegistry meterRegistry
 	) {
 		BatchAccumulator<Orderbook5Message> accumulator = new BatchAccumulator<>(
 			writer,
@@ -89,7 +95,8 @@ public class BatchAccumulatorConfig {
 			workerThreadCount,
 			coordinatorThreadCount,
 			"orderbook-5",
-			kafkaTemplate
+			kafkaTemplate,
+			meterRegistry
 		);
 		accumulator.start();
 		return accumulator;

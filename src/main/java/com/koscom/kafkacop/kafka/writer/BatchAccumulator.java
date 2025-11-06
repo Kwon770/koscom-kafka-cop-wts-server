@@ -1,5 +1,9 @@
 package com.koscom.kafkacop.kafka.writer;
 
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.Gauge;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
@@ -9,6 +13,7 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * 단건 수신 → 큐 적재 → 워커가 N/T 조건으로 배치 flush.
@@ -31,24 +36,46 @@ public class BatchAccumulator<T> {
 	private final BatchWriter<T> writer;                // DB upsert 수행
 	private final String sourceTopic;                   // 원본 토픽명 (DLT 전송용)
 	private final KafkaTemplate<String, Object> kafkaTemplate;  // DLT 전송용
+	private final MeterRegistry meterRegistry;          // 메트릭 레지스트리
 
 	private ExecutorService coordinatorExecutor;        // 배치 수집 스레드
 	private ExecutorService flushExecutorPool;          // 배치 flush 스레드 풀
+	private ScheduledExecutorService metricsScheduler;  // 메트릭 업데이트 스케줄러
 	private volatile boolean running = true;
 
+	// === 메트릭 ===
+	private Counter messagesQueuedCounter;              // 큐에 추가된 메시지 수
+	private Counter messagesDroppedCounter;             // 큐 가득 차서 드롭된 메시지 수
+	private Counter batchesProcessedCounter;            // 처리된 배치 수
+	private Counter messagesProcessedCounter;           // 처리된 메시지 수
+	private Counter coordinatorProcessedCounter;        // Coordinator가 처리한 메시지 수
+	private Timer flushTimer;                           // flush 소요 시간
+
+	// === 분당 처리량 추적 (per-minute throughput) ===
+	private final AtomicLong messagesQueuedLastMinute = new AtomicLong(0);
+	private final AtomicLong coordinatorProcessedLastMinute = new AtomicLong(0);
+	private final AtomicLong workerProcessedLastMinute = new AtomicLong(0);
+	private final AtomicLong messagesQueuedPerMinute = new AtomicLong(0);
+	private final AtomicLong coordinatorThroughputPerMinute = new AtomicLong(0);
+	private final AtomicLong workerThroughputPerMinute = new AtomicLong(0);
+	private volatile long lastResetTime = System.currentTimeMillis();
+
 	public BatchAccumulator(BatchWriter<T> writer, int batchSize, Duration maxLatency, int queueCapacity,
-	                        String sourceTopic, KafkaTemplate<String, Object> kafkaTemplate) {
-		this(writer, batchSize, maxLatency, queueCapacity, 3, 1, sourceTopic, kafkaTemplate);  // 기본 3개 워커, 1개 코디네이터
+	                        String sourceTopic, KafkaTemplate<String, Object> kafkaTemplate,
+	                        MeterRegistry meterRegistry) {
+		this(writer, batchSize, maxLatency, queueCapacity, 3, 1, sourceTopic, kafkaTemplate, meterRegistry);
 	}
 
 	public BatchAccumulator(BatchWriter<T> writer, int batchSize, Duration maxLatency, int queueCapacity,
-	                        int workerThreadCount, String sourceTopic, KafkaTemplate<String, Object> kafkaTemplate) {
-		this(writer, batchSize, maxLatency, queueCapacity, workerThreadCount, 1, sourceTopic, kafkaTemplate);  // 기본 1개 코디네이터
+	                        int workerThreadCount, String sourceTopic, KafkaTemplate<String, Object> kafkaTemplate,
+	                        MeterRegistry meterRegistry) {
+		this(writer, batchSize, maxLatency, queueCapacity, workerThreadCount, 1, sourceTopic, kafkaTemplate, meterRegistry);
 	}
 
 	public BatchAccumulator(BatchWriter<T> writer, int batchSize, Duration maxLatency, int queueCapacity,
 	                        int workerThreadCount, int coordinatorThreadCount,
-	                        String sourceTopic, KafkaTemplate<String, Object> kafkaTemplate) {
+	                        String sourceTopic, KafkaTemplate<String, Object> kafkaTemplate,
+	                        MeterRegistry meterRegistry) {
 		this.writer = writer;
 		this.batchSize = batchSize;
 		this.maxLatency = maxLatency;
@@ -57,8 +84,72 @@ public class BatchAccumulator<T> {
 		this.coordinatorThreadCount = coordinatorThreadCount;
 		this.sourceTopic = sourceTopic;
 		this.kafkaTemplate = kafkaTemplate;
+		this.meterRegistry = meterRegistry;
 		this.queue = new ArrayBlockingQueue<>(queueCapacity);
 		this.buffer = new ArrayList<>(batchSize);
+
+		// 메트릭 초기화
+		initializeMetrics();
+	}
+
+	private void initializeMetrics() {
+		String topicTag = sourceTopic != null ? sourceTopic : "unknown";
+
+		// 큐 크기 게이지
+		meterRegistry.gaugeCollectionSize(
+			"batch.accumulator.queue.size",
+			io.micrometer.core.instrument.Tags.of("topic", topicTag),
+			queue
+		);
+
+		// 카운터 초기화
+		messagesQueuedCounter = Counter.builder("batch.accumulator.messages.queued")
+			.tag("topic", topicTag)
+			.description("Number of messages added to the queue")
+			.register(meterRegistry);
+
+		messagesDroppedCounter = Counter.builder("batch.accumulator.messages.dropped")
+			.tag("topic", topicTag)
+			.description("Number of messages dropped due to queue full")
+			.register(meterRegistry);
+
+		batchesProcessedCounter = Counter.builder("batch.accumulator.batches.processed")
+			.tag("topic", topicTag)
+			.description("Number of batches flushed to database")
+			.register(meterRegistry);
+
+		messagesProcessedCounter = Counter.builder("batch.accumulator.messages.processed")
+			.tag("topic", topicTag)
+			.description("Number of messages flushed to database")
+			.register(meterRegistry);
+
+		coordinatorProcessedCounter = Counter.builder("batch.accumulator.coordinator.processed")
+			.tag("topic", topicTag)
+			.description("Number of messages processed by coordinator (polled from queue)")
+			.register(meterRegistry);
+
+		flushTimer = Timer.builder("batch.accumulator.flush.duration")
+			.tag("topic", topicTag)
+			.description("Time taken to flush a batch to database")
+			.register(meterRegistry);
+
+		// 분당 처리량 게이지 (Kafka Consumer Thread)
+		Gauge.builder("batch.accumulator.consumer.throughput.per_minute", messagesQueuedPerMinute, AtomicLong::get)
+			.tag("topic", topicTag)
+			.description("Messages received from Kafka per minute (consumer thread throughput)")
+			.register(meterRegistry);
+
+		// 분당 처리량 게이지 (Coordinator Thread)
+		Gauge.builder("batch.accumulator.coordinator.throughput.per_minute", coordinatorThroughputPerMinute, AtomicLong::get)
+			.tag("topic", topicTag)
+			.description("Messages coordinated per minute (coordinator thread throughput)")
+			.register(meterRegistry);
+
+		// 분당 처리량 게이지 (Worker Thread)
+		Gauge.builder("batch.accumulator.worker.throughput.per_minute", workerThroughputPerMinute, AtomicLong::get)
+			.tag("topic", topicTag)
+			.description("Messages flushed to DB per minute (worker thread throughput)")
+			.register(meterRegistry);
 	}
 
 	/** 리스너(단건 소비)에서 호출: 매우 빠르게 끝나야 함 */
@@ -71,8 +162,12 @@ public class BatchAccumulator<T> {
 			Thread.currentThread().interrupt();
 			ok = false;
 		}
-		if (!ok) {
+		if (ok) {
+			messagesQueuedCounter.increment();
+			messagesQueuedLastMinute.incrementAndGet();  // 분당 처리량 추적
+		} else {
 			// 정책 선택: (A) 드롭/로깅 (B) 차단시간 늘리기 (C) DLT/알람
+			messagesDroppedCounter.increment();
 			log.warn("Accumulator queue full; dropped or route to fallback. item={}", item);
 		}
 	}
@@ -99,19 +194,72 @@ public class BatchAccumulator<T> {
 			return t;
 		});
 
+		// 3. 메트릭 업데이트 스케줄러 (5초마다 업데이트, 1분마다 리셋)
+		metricsScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
+			Thread t = new Thread(r, "batch-metrics-updater-" + System.identityHashCode(this));
+			t.setDaemon(true);
+			return t;
+		});
+
+		// 5초마다 메트릭 업데이트 (현재 누적값 반영)
+		// 1분마다 자동으로 리셋 (내부 로직에서 처리)
+		metricsScheduler.scheduleAtFixedRate(this::updateThroughputMetrics, 5, 5, TimeUnit.SECONDS);
+
 		// 코디네이터 수만큼 runLoop 실행
 		for (int i = 0; i < coordinatorThreadCount; i++) {
 			coordinatorExecutor.submit(this::runLoop);
 		}
 
-		log.info("BatchAccumulator started: batchSize={}, maxLatency={}ms, queueCapacity={}, " +
+		log.debug("BatchAccumulator started: batchSize={}, maxLatency={}ms, queueCapacity={}, " +
 			"coordinatorThreads={}, workerThreads={}",
 			batchSize, maxLatency.toMillis(), queueCapacity, coordinatorThreadCount, workerThreadCount);
+	}
+
+	/**
+	 * 5초마다 실행: 현재 누적된 처리량을 게이지에 업데이트
+	 * 1분마다: 누적 카운터를 0으로 리셋하여 새로운 1분 측정 시작
+	 */
+	private void updateThroughputMetrics() {
+		try {
+			long currentTime = System.currentTimeMillis();
+			long elapsedSeconds = (currentTime - lastResetTime) / 1000;
+
+			// 현재 누적값을 게이지에 설정 (리셋하지 않음)
+			long consumerThroughput = messagesQueuedLastMinute.get();
+			long coordinatorThroughput = coordinatorProcessedLastMinute.get();
+			long workerThroughput = workerProcessedLastMinute.get();
+
+			messagesQueuedPerMinute.set(consumerThroughput);
+			coordinatorThroughputPerMinute.set(coordinatorThroughput);
+			workerThroughputPerMinute.set(workerThroughput);
+
+			// 1분(60초) 경과 시 리셋
+			if (elapsedSeconds >= 60) {
+				messagesQueuedLastMinute.set(0);
+				coordinatorProcessedLastMinute.set(0);
+				workerProcessedLastMinute.set(0);
+				lastResetTime = currentTime;
+
+				log.debug("[{}] Throughput metrics RESET after 1 minute: consumer={}/min, coordinator={}/min, worker={}/min, queue={}",
+					sourceTopic, consumerThroughput, coordinatorThroughput, workerThroughput, queue.size());
+			} else {
+				log.debug("[{}] Throughput metrics updated ({}s): consumer={}, coordinator={}, worker={}, queue={}",
+					sourceTopic, elapsedSeconds, consumerThroughput, coordinatorThroughput, workerThroughput, queue.size());
+			}
+		} catch (Exception e) {
+			log.error("Failed to update throughput metrics", e);
+		}
 	}
 
 	@PreDestroy
 	public void stop() {
 		running = false;
+
+		// 메트릭 스케줄러 종료
+		if (metricsScheduler != null) {
+			metricsScheduler.shutdownNow();
+		}
+
 		coordinatorExecutor.shutdownNow();
 		try {
 			coordinatorExecutor.awaitTermination(5, TimeUnit.SECONDS);
@@ -146,8 +294,15 @@ public class BatchAccumulator<T> {
 
 				if (first != null) {
 					buffer.add(first);
+					int coordinatorProcessedCount = 1;  // poll로 1개 가져옴
+
 					// 2) 큐에 남은 것 한 번에 더 가져오기 (drainTo로 I/O 호출 수 최소화)
-					queue.drainTo(buffer, batchSize - buffer.size());
+					int drained = queue.drainTo(buffer, batchSize - buffer.size());
+					coordinatorProcessedCount += drained;
+
+					// Coordinator 처리량 메트릭 기록
+					coordinatorProcessedCounter.increment(coordinatorProcessedCount);
+					coordinatorProcessedLastMinute.addAndGet(coordinatorProcessedCount);
 				}
 
 				boolean sizeReached = buffer.size() >= batchSize;
@@ -155,20 +310,29 @@ public class BatchAccumulator<T> {
 
 				if (sizeReached || timeReached) {
 					List<T> toFlush = new ArrayList<>(buffer);
+					int currentBatchSize = toFlush.size();
 					buffer.clear();
 					lastFlushNanos = now;
 
 					// 워커 풀에 비동기로 flush 작업 제출 (병렬 처리)
 					flushExecutorPool.submit(() -> {
-						try {
-							writer.flush(toFlush); // DB 배치 UPSERT (트랜잭션 내부)
-							log.debug("Batch flushed successfully: size={}", toFlush.size());
-						} catch (Exception e) {
-							// 실패 정책: 재시도/분할/로그/알람 (필요 시 DLT로 라우팅)
-							log.error("Batch flush failed; size={}", toFlush.size(), e);
-							// 간단 재시도 예시
-							retryFlush(toFlush, 3);
-						}
+						flushTimer.record(() -> {
+							try {
+								writer.flush(toFlush); // DB 배치 UPSERT (트랜잭션 내부)
+
+								// 메트릭 기록
+								batchesProcessedCounter.increment();
+								messagesProcessedCounter.increment(currentBatchSize);
+								workerProcessedLastMinute.addAndGet(currentBatchSize);
+
+								log.debug("Batch flushed successfully: size={}", currentBatchSize);
+							} catch (Exception e) {
+								// 실패 정책: 재시도/분할/로그/알람 (필요 시 DLT로 라우팅)
+								log.error("Batch flush failed; size={}", currentBatchSize, e);
+								// 간단 재시도 예시
+								retryFlush(toFlush, 3);
+							}
+						});
 					});
 				}
 			}
