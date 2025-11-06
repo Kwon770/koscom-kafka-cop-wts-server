@@ -166,9 +166,13 @@ public class BatchAccumulator<T> {
 			messagesQueuedCounter.increment();
 			messagesQueuedLastMinute.incrementAndGet();  // 분당 처리량 추적
 		} else {
-			// 정책 선택: (A) 드롭/로깅 (B) 차단시간 늘리기 (C) DLT/알람
+			// 큐 가득참: DLT로 전송
 			messagesDroppedCounter.increment();
-			log.warn("Accumulator queue full; dropped or route to fallback. item={}", item);
+			log.warn("[{}] Accumulator queue full (capacity={}); sending message to DLT. item={}",
+				sourceTopic, queueCapacity, item);
+
+			// DLT로 단건 전송 (비동기)
+			sendSingleMessageToDlt(item);
 		}
 	}
 
@@ -358,6 +362,31 @@ public class BatchAccumulator<T> {
 		// 최종 실패 시 DLT로 전송
 		log.error("Permanent failure after {} attempts; sending {} messages to DLT", maxRetry, batch.size());
 		sendToDlt(batch);
+	}
+
+	/**
+	 * 큐 오버플로우 시 단건 메시지를 DLT로 즉시 전송 (비동기, 비차단)
+	 * - 리스너 스레드를 차단하지 않도록 fire-and-forget 방식
+	 */
+	private void sendSingleMessageToDlt(T message) {
+		if (kafkaTemplate == null || sourceTopic == null) {
+			log.warn("KafkaTemplate or sourceTopic not configured; cannot send to DLT");
+			return;
+		}
+
+		String dltTopic = sourceTopic + ".DLT";
+
+		// 비동기 전송 (리스너 스레드를 차단하지 않음)
+		kafkaTemplate.send(dltTopic, message)
+			.whenComplete((result, ex) -> {
+				if (ex != null) {
+					log.error("[{}] Failed to send dropped message to DLT topic={}, message={}",
+						sourceTopic, dltTopic, message, ex);
+				} else {
+					log.info("[{}] Successfully sent dropped message to DLT topic={}, offset={}",
+						sourceTopic, dltTopic, result.getRecordMetadata().offset());
+				}
+			});
 	}
 
 	/**
