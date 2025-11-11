@@ -285,9 +285,6 @@ public class BatchAccumulator<T> {
 		// 1분마다 자동으로 리셋 (내부 로직에서 처리)
 		metricsScheduler.scheduleAtFixedRate(this::updateThroughputMetrics, 5, 5, TimeUnit.SECONDS);
 
-		// 4. 메모리 누수 감지를 위한 큐 상태 모니터링 (30초마다)
-		metricsScheduler.scheduleAtFixedRate(this::monitorQueueHealth, 30, 30, TimeUnit.SECONDS);
-
 		// 코디네이터 수만큼 runLoop 실행
 		for (int i = 0; i < coordinatorThreadCount; i++) {
 			int coordinatorId = i;
@@ -300,63 +297,6 @@ public class BatchAccumulator<T> {
 		log.info("[{}] BatchAccumulator started: batchSize={}, maxLatency={}ms, queueCapacity={}, " +
 			"coordinatorThreads={}, workerThreads={}",
 			sourceTopic, batchSize, maxLatency.toMillis(), queueCapacity, coordinatorThreadCount, workerThreadCount);
-	}
-
-	/**
-	 * 큐 상태 모니터링: 메모리 누수 감지
-	 */
-	private void monitorQueueHealth() {
-		try {
-			int currentQueueSize = queue.size();
-			double usageRatio = (double) currentQueueSize / queueCapacity;
-
-			// ThreadPoolExecutor 상태 확인
-			String coordinatorStatus = "unknown";
-			String workerStatus = "unknown";
-
-			if (coordinatorExecutor instanceof ThreadPoolExecutor tpe) {
-				coordinatorStatus = String.format("active=%d, poolSize=%d, taskCount=%d",
-					tpe.getActiveCount(), tpe.getPoolSize(), tpe.getTaskCount());
-			}
-
-			int workerQueueSize = 0;
-			double workerQueueUsageRatio = 0.0;
-			if (flushExecutorPool instanceof ThreadPoolExecutor tpe) {
-				workerQueueSize = tpe.getQueue().size();
-				workerQueueUsageRatio = (double) workerQueueSize / workerQueueCapacity;
-				workerStatus = String.format("active=%d, poolSize=%d, completed=%d, taskCount=%d, queueSize=%d/%d (%.1f%%)",
-					tpe.getActiveCount(), tpe.getPoolSize(), tpe.getCompletedTaskCount(), tpe.getTaskCount(),
-					workerQueueSize, workerQueueCapacity, workerQueueUsageRatio * 100);
-			}
-
-			log.info("[{}] Queue Health Check: consumerQueue={}/{} ({}%), buffer={}, " +
-				"coordinator=[{}], workers=[{}]",
-				sourceTopic, currentQueueSize, queueCapacity, String.format("%.1f", usageRatio * 100),
-				buffer.size(), coordinatorStatus, workerStatus);
-
-			// 위험 수준 경고 - Consumer Queue
-			if (usageRatio >= 0.95) {
-				log.error("[{}] CRITICAL: Consumer queue is 95%+ full! Possible memory leak or worker threads stuck. " +
-					"Consider increasing worker-thread-count or checking DB performance.",
-					sourceTopic);
-			} else if (usageRatio >= 0.8) {
-				log.warn("[{}] WARNING: Consumer queue is 80%+ full. Workers may not be keeping up with consumer speed.",
-					sourceTopic);
-			}
-
-			// 위험 수준 경고 - Worker Queue
-			if (workerQueueUsageRatio >= 0.95) {
-				log.error("[{}] CRITICAL: Worker queue is 95%+ full! DB writes are too slow or worker threads insufficient. " +
-					"Consider increasing worker-queue-capacity or worker-thread-count. CallerRunsPolicy will activate soon.",
-					sourceTopic);
-			} else if (workerQueueUsageRatio >= 0.8) {
-				log.warn("[{}] WARNING: Worker queue is 80%+ full. DB performance may be degraded. " +
-					"If this persists, backpressure will activate (Coordinator will execute flushes directly).",
-					sourceTopic);
-			}
-		} catch (Exception e) {
-			log.error("[{}] Failed to monitor queue health", sourceTopic, e);
-		}
 	}
 
 	/**
