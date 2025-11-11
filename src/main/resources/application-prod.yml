@@ -56,7 +56,7 @@ app:
     batch-size: 3000               # 메모리 안정화: 배치 크기 감소
     max-latency-ms: 100           # 배치 최대 대기시간 (ms)
     queue-capacity: 200000        # 메모리 안정화: 큐 용량 절반으로 감소
-    worker-thread-count: 3       # Topic별 Worker 스레드 갯수
+    worker-thread-count: 15       # Topic별 Worker 스레드 갯수
     coordinator-thread-count: 1   # 배치 수집 코디네이터 스레드 수 (권장: 1)
     worker-queue-capacity: 400    # 워커 작업 큐 용량 (메모리 누수 방지, 300배치 ≈ 120MB per topic)
   kafka:

@@ -276,17 +276,17 @@ public class CoinWtsListener {
 			if (!currentlyPaused && queueUsage >= pauseThreshold) {
 				container.pause();
 				isPausedSetter.accept(true);
-				log.warn("⏸️  PAUSED consumer [{}] - Queue usage: {:.1f}% >= {:.1f}% (threshold). " +
+				log.warn(String.format("⏸️  PAUSED consumer [%s] - Queue usage: %.1f%% >= %.1f%% (threshold). " +
 					"Kafka consumption stopped to prevent message loss.",
-					listenerId, queueUsage * 100, pauseThreshold * 100);
+					listenerId, queueUsage * 100, pauseThreshold * 100));
 			}
 			// 여유 생김 → Resume
 			else if (currentlyPaused && queueUsage <= resumeThreshold) {
 				container.resume();
 				isPausedSetter.accept(false);
-				log.info("▶️  RESUMED consumer [{}] - Queue usage: {:.1f}% <= {:.1f}% (threshold). " +
+				log.info(String.format("▶️  RESUMED consumer [%s] - Queue usage: %.1f%% <= %.1f%% (threshold). " +
 					"Kafka consumption restarted.",
-					listenerId, queueUsage * 100, resumeThreshold * 100);
+					listenerId, queueUsage * 100, resumeThreshold * 100));
 			}
 		} catch (Exception e) {
 			log.error("[{}] Failed to check and apply backpressure", listenerId, e);
