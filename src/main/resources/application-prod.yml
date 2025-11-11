@@ -6,7 +6,7 @@ spring:
     hikari:
       auto-commit: false
       minimum-idle: 20
-      maximum-pool-size: 100      # 50 → 100 (Worker 30개 * 3 토픽 = 90개 필요)
+      maximum-pool-size: 50
       connection-timeout: 30000   # 30초
       max-lifetime: 1800000       # 30분
       idle-timeout: 600000        # 10분
@@ -38,23 +38,26 @@ spring:
       group-id: coin-wts-consumer-prod
       enable-auto-commit: false
       auto-offset-reset: earliest
+      ########################################
       max-poll-records: 50        # 메모리 안정화: Consumer 속도 제한
       fetch-min-size: 2048        # 최소 2KB 쌓여야 fetch
       fetch-max-wait: 1000        # 최대 1초 대기 (Consumer 속도 늦춤)
+      ########################################
       properties:
         max.poll.interval.ms: 300000  # poll 간격 5분
     listener:
       type: batch                 # single → batch (배치 소비 패턴)
       ack-mode: MANUAL_IMMEDIATE  # 배치 처리 후 즉시 커밋
-      concurrency: 1              # 안정화 후 점진적 증가 권장
+      concurrency: 1
 
 app:
   batch-accumulator:
     batch-size: 500               # 메모리 안정화: 배치 크기 감소
     max-latency-ms: 100           # 배치 최대 대기시간 (ms)
     queue-capacity: 100000        # 메모리 안정화: 큐 용량 절반으로 감소
-    worker-thread-count: 30       # Worker 스레드 2배 증가 (처리 속도 향상)
+    worker-thread-count: 5       # Topic별 Worker 스레드 갯수
     coordinator-thread-count: 1   # 배치 수집 코디네이터 스레드 수 (권장: 1)
+    worker-queue-capacity: 300    # 워커 작업 큐 용량 (메모리 누수 방지, 300배치 ≈ 120MB per topic)
 
 logging:
   pattern:

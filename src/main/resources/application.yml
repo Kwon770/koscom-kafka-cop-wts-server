@@ -74,6 +74,7 @@ app:
     queue-capacity: 200000        # 내부 큐 용량
     worker-thread-count: 3        # 배치 flush 워커 스레드 수
     coordinator-thread-count: 1   # 배치 수집 코디네이터 스레드 수 (권장: 1, thread-safety 주의)
+    worker-queue-capacity: 300    # 워커 작업 큐 용량 (메모리 누수 방지)
   web:
     url-no-logging:
       - /h2-console/**

@@ -39,6 +39,9 @@ public class BatchAccumulatorConfig {
 	@Value("${app.batch-accumulator.coordinator-thread-count}")
 	private int coordinatorThreadCount;
 
+	@Value("${app.batch-accumulator.worker-queue-capacity}")
+	private int workerQueueCapacity;
+
 	@Bean
 	public BatchAccumulator<TickerBasicMessage> tickerBasicAccumulator(
 		TickerBasicBatchWriter writer,
@@ -52,6 +55,7 @@ public class BatchAccumulatorConfig {
 			queueCapacity,
 			workerThreadCount,
 			coordinatorThreadCount,
+			workerQueueCapacity,
 			"ticker-basic",
 			kafkaTemplate,
 			meterRegistry
@@ -73,6 +77,7 @@ public class BatchAccumulatorConfig {
 			queueCapacity,
 			workerThreadCount,
 			coordinatorThreadCount,
+			workerQueueCapacity,
 			"candel-1s",
 			kafkaTemplate,
 			meterRegistry
@@ -94,6 +99,7 @@ public class BatchAccumulatorConfig {
 			queueCapacity,
 			workerThreadCount,
 			coordinatorThreadCount,
+			workerQueueCapacity,
 			"orderbook-5",
 			kafkaTemplate,
 			meterRegistry

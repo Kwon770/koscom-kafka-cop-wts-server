@@ -29,6 +29,7 @@ public class BatchAccumulator<T> {
 	private final int queueCapacity;                    // 내부 큐 용량(백프레셔 임계)
 	private final int workerThreadCount;                // 워커 스레드 수 (병렬 처리)
 	private final int coordinatorThreadCount;           // 코디네이터 스레드 수 (큐 소비)
+	private final int workerQueueCapacity;              // 워커 작업 큐 용량 (메모리 누수 방지)
 
 	// === 구성 요소 ===
 	private final BlockingQueue<T> queue;
@@ -63,17 +64,17 @@ public class BatchAccumulator<T> {
 	public BatchAccumulator(BatchWriter<T> writer, int batchSize, Duration maxLatency, int queueCapacity,
 	                        String sourceTopic, KafkaTemplate<String, Object> kafkaTemplate,
 	                        MeterRegistry meterRegistry) {
-		this(writer, batchSize, maxLatency, queueCapacity, 3, 1, sourceTopic, kafkaTemplate, meterRegistry);
+		this(writer, batchSize, maxLatency, queueCapacity, 3, 1, 300, sourceTopic, kafkaTemplate, meterRegistry);
 	}
 
 	public BatchAccumulator(BatchWriter<T> writer, int batchSize, Duration maxLatency, int queueCapacity,
 	                        int workerThreadCount, String sourceTopic, KafkaTemplate<String, Object> kafkaTemplate,
 	                        MeterRegistry meterRegistry) {
-		this(writer, batchSize, maxLatency, queueCapacity, workerThreadCount, 1, sourceTopic, kafkaTemplate, meterRegistry);
+		this(writer, batchSize, maxLatency, queueCapacity, workerThreadCount, 1, 300, sourceTopic, kafkaTemplate, meterRegistry);
 	}
 
 	public BatchAccumulator(BatchWriter<T> writer, int batchSize, Duration maxLatency, int queueCapacity,
-	                        int workerThreadCount, int coordinatorThreadCount,
+	                        int workerThreadCount, int coordinatorThreadCount, int workerQueueCapacity,
 	                        String sourceTopic, KafkaTemplate<String, Object> kafkaTemplate,
 	                        MeterRegistry meterRegistry) {
 		this.writer = writer;
@@ -82,6 +83,7 @@ public class BatchAccumulator<T> {
 		this.queueCapacity = queueCapacity;
 		this.workerThreadCount = workerThreadCount;
 		this.coordinatorThreadCount = coordinatorThreadCount;
+		this.workerQueueCapacity = workerQueueCapacity;
 		this.sourceTopic = sourceTopic;
 		this.kafkaTemplate = kafkaTemplate;
 		this.meterRegistry = meterRegistry;
@@ -168,6 +170,45 @@ public class BatchAccumulator<T> {
 			.tag("topic", topicTag)
 			.description("Messages flushed to DB per minute (worker thread throughput)")
 			.register(meterRegistry);
+
+		// 워커 작업 큐 크기 게이지 (현재 대기 중인 flush 작업 수)
+		Gauge.builder("batch.accumulator.worker.queue.size", () -> {
+			if (flushExecutorPool instanceof ThreadPoolExecutor tpe) {
+				return (double) tpe.getQueue().size();
+			}
+			return 0.0;
+		})
+			.tag("topic", topicTag)
+			.description("Number of pending flush tasks in worker queue")
+			.register(meterRegistry);
+
+		// 워커 작업 큐 용량 게이지
+		Gauge.builder("batch.accumulator.worker.queue.capacity", () -> (double) workerQueueCapacity)
+			.tag("topic", topicTag)
+			.description("Maximum capacity of worker queue")
+			.register(meterRegistry);
+
+		// 워커 작업 큐 사용률 게이지 (0.0 ~ 1.0)
+		Gauge.builder("batch.accumulator.worker.queue.usage_ratio", () -> {
+			if (flushExecutorPool instanceof ThreadPoolExecutor tpe) {
+				return (double) tpe.getQueue().size() / workerQueueCapacity;
+			}
+			return 0.0;
+		})
+			.tag("topic", topicTag)
+			.description("Worker queue usage ratio (0.0 to 1.0)")
+			.register(meterRegistry);
+
+		// 워커 활성 스레드 수 게이지
+		Gauge.builder("batch.accumulator.worker.active_threads", () -> {
+			if (flushExecutorPool instanceof ThreadPoolExecutor tpe) {
+				return (double) tpe.getActiveCount();
+			}
+			return 0.0;
+		})
+			.tag("topic", topicTag)
+			.description("Number of actively executing worker threads")
+			.register(meterRegistry);
 	}
 
 	/** 리스너(단건 소비)에서 호출: 매우 빠르게 끝나야 함 */
@@ -219,12 +260,19 @@ public class BatchAccumulator<T> {
 			return t;
 		});
 
-		// 2. 배치 flush 워커 풀 (병렬 처리)
-		flushExecutorPool = Executors.newFixedThreadPool(workerThreadCount, r -> {
-			Thread t = new Thread(r, "batch-flush-worker-" + System.identityHashCode(this));
-			t.setDaemon(true);
-			return t;
-		});
+		// 2. 배치 flush 워커 풀 (병렬 처리) - bounded queue + CallerRunsPolicy로 메모리 누수 방지
+		flushExecutorPool = new ThreadPoolExecutor(
+			workerThreadCount,                       // corePoolSize
+			workerThreadCount,                       // maximumPoolSize
+			60L, TimeUnit.SECONDS,                   // keepAliveTime
+			new ArrayBlockingQueue<>(workerQueueCapacity),  // bounded queue (메모리 제한)
+			r -> {
+				Thread t = new Thread(r, "batch-flush-worker-" + System.identityHashCode(this));
+				t.setDaemon(true);
+				return t;
+			},
+			new ThreadPoolExecutor.CallerRunsPolicy()  // 큐 가득 차면 Coordinator가 직접 실행 → 자연스러운 백프레셔
+		);
 
 		// 3. 메트릭 업데이트 스케줄러 (5초마다 업데이트, 1분마다 리셋)
 		metricsScheduler = Executors.newSingleThreadScheduledExecutor(r -> {
@@ -271,23 +319,39 @@ public class BatchAccumulator<T> {
 					tpe.getActiveCount(), tpe.getPoolSize(), tpe.getTaskCount());
 			}
 
+			int workerQueueSize = 0;
+			double workerQueueUsageRatio = 0.0;
 			if (flushExecutorPool instanceof ThreadPoolExecutor tpe) {
-				workerStatus = String.format("active=%d, poolSize=%d, completed=%d, taskCount=%d",
-					tpe.getActiveCount(), tpe.getPoolSize(), tpe.getCompletedTaskCount(), tpe.getTaskCount());
+				workerQueueSize = tpe.getQueue().size();
+				workerQueueUsageRatio = (double) workerQueueSize / workerQueueCapacity;
+				workerStatus = String.format("active=%d, poolSize=%d, completed=%d, taskCount=%d, queueSize=%d/%d (%.1f%%)",
+					tpe.getActiveCount(), tpe.getPoolSize(), tpe.getCompletedTaskCount(), tpe.getTaskCount(),
+					workerQueueSize, workerQueueCapacity, workerQueueUsageRatio * 100);
 			}
 
-			log.info("[{}] Queue Health Check: size={}/{} ({:.1f}%), buffer={}, " +
+			log.info("[{}] Queue Health Check: consumerQueue={}/{} ({}%), buffer={}, " +
 				"coordinator=[{}], workers=[{}]",
-				sourceTopic, currentQueueSize, queueCapacity, usageRatio * 100,
+				sourceTopic, currentQueueSize, queueCapacity, String.format("%.1f", usageRatio * 100),
 				buffer.size(), coordinatorStatus, workerStatus);
 
-			// 위험 수준 경고
+			// 위험 수준 경고 - Consumer Queue
 			if (usageRatio >= 0.95) {
-				log.error("[{}] CRITICAL: Queue is 95%+ full! Possible memory leak or worker threads stuck. " +
+				log.error("[{}] CRITICAL: Consumer queue is 95%+ full! Possible memory leak or worker threads stuck. " +
 					"Consider increasing worker-thread-count or checking DB performance.",
 					sourceTopic);
 			} else if (usageRatio >= 0.8) {
-				log.warn("[{}] WARNING: Queue is 80%+ full. Workers may not be keeping up with consumer speed.",
+				log.warn("[{}] WARNING: Consumer queue is 80%+ full. Workers may not be keeping up with consumer speed.",
+					sourceTopic);
+			}
+
+			// 위험 수준 경고 - Worker Queue
+			if (workerQueueUsageRatio >= 0.95) {
+				log.error("[{}] CRITICAL: Worker queue is 95%+ full! DB writes are too slow or worker threads insufficient. " +
+					"Consider increasing worker-queue-capacity or worker-thread-count. CallerRunsPolicy will activate soon.",
+					sourceTopic);
+			} else if (workerQueueUsageRatio >= 0.8) {
+				log.warn("[{}] WARNING: Worker queue is 80%+ full. DB performance may be degraded. " +
+					"If this persists, backpressure will activate (Coordinator will execute flushes directly).",
 					sourceTopic);
 			}
 		} catch (Exception e) {
@@ -407,9 +471,7 @@ public class BatchAccumulator<T> {
 
 								log.debug("Batch flushed successfully: size={}", currentBatchSize);
 							} catch (Exception e) {
-								// 실패 정책: 재시도/분할/로그/알람 (필요 시 DLT로 라우팅)
 								log.error("Batch flush failed; size={}", currentBatchSize, e);
-								// 간단 재시도 예시
 								retryFlush(toFlush, 3);
 							}
 						});
