@@ -4,8 +4,12 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import jakarta.annotation.PostConstruct;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
+import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.kafka.support.Acknowledgment;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 import com.koscom.kafkacop.kafka.writer.BatchAccumulator;
@@ -18,6 +22,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 import java.util.List;
+import java.util.function.BooleanSupplier;
+import java.util.function.Consumer;
 
 @Slf4j
 @Component
@@ -29,6 +35,19 @@ public class CoinWtsListener {
 	private final BatchAccumulator<CandleSecondMessage> candleSecondAccumulator;
 	private final BatchAccumulator<Orderbook5Message> orderbook5Accumulator;
 	private final MeterRegistry meterRegistry;
+	private final KafkaListenerEndpointRegistry kafkaListenerEndpointRegistry;
+
+	// 백프레셔 설정
+	@Value("${app.kafka.backpressure.pause-threshold:0.80}")
+	private double pauseThreshold;
+
+	@Value("${app.kafka.backpressure.resume-threshold:0.50}")
+	private double resumeThreshold;
+
+	// Pause 상태 추적
+	private volatile boolean tickerBasicPaused = false;
+	private volatile boolean candleSecondPaused = false;
+	private volatile boolean orderbook5Paused = false;
 
 	// 메트릭
 	private Counter tickerBasicConsumedCounter;
@@ -58,7 +77,11 @@ public class CoinWtsListener {
 	 * - 리스너에서는 SSE 브로드캐스트와 배치 누적만 수행 (지연 최소화)
 	 * - DB 저장은 별도 워커 스레드가 N/T 조건으로 배치 처리
 	 */
-	@KafkaListener(topics = "ticker-basic", containerFactory = "tickerBasicListenerContainerFactory")
+	@KafkaListener(
+		id = "ticker-basic-listener",
+		topics = "ticker-basic",
+		containerFactory = "tickerBasicListenerContainerFactory"
+	)
 	public void onTickerBasic(List<ConsumerRecord<String, TickerBasicMessage>> records, Acknowledgment ack) {
 		try {
 			int processedCount = 0;
@@ -101,7 +124,11 @@ public class CoinWtsListener {
 		}
 	}
 
-	@KafkaListener(topics = "candel-1s", containerFactory = "candleSecondListenerContainerFactory")
+	@KafkaListener(
+		id = "candle-second-listener",
+		topics = "candel-1s",
+		containerFactory = "candleSecondListenerContainerFactory"
+	)
 	public void onCandleSecond(List<ConsumerRecord<String, CandleSecondMessage>> records, Acknowledgment ack) {
 		try {
 			int processedCount = 0;
@@ -144,7 +171,11 @@ public class CoinWtsListener {
 		}
 	}
 
-	@KafkaListener(topics = "orderbook-5", containerFactory = "orderbook5ListenerContainerFactory")
+	@KafkaListener(
+		id = "orderbook5-listener",
+		topics = "orderbook-5",
+		containerFactory = "orderbook5ListenerContainerFactory"
+	)
 	public void onOrderbook5(List<ConsumerRecord<String, Orderbook5Message>> records, Acknowledgment ack) {
 		try {
 			int processedCount = 0;
@@ -184,6 +215,81 @@ public class CoinWtsListener {
 		} catch (Exception e) {
 			log.error("Failed to process orderbook-5 batch", e);
 			throw e;
+		}
+	}
+
+	/**
+	 * 주기적으로 모든 토픽의 백프레셔 상태를 체크하고 Consumer pause/resume 적용
+	 * 1초마다 실행
+	 */
+	@Scheduled(fixedDelay = 1000)
+	public void monitorAndControlBackpressure() {
+		checkAndApplyBackpressure(
+			"ticker-basic-listener",
+			tickerBasicAccumulator,
+			() -> tickerBasicPaused,
+			paused -> tickerBasicPaused = paused
+		);
+
+		checkAndApplyBackpressure(
+			"candle-second-listener",
+			candleSecondAccumulator,
+			() -> candleSecondPaused,
+			paused -> candleSecondPaused = paused
+		);
+
+		checkAndApplyBackpressure(
+			"orderbook5-listener",
+			orderbook5Accumulator,
+			() -> orderbook5Paused,
+			paused -> orderbook5Paused = paused
+		);
+	}
+
+	/**
+	 * 백프레셔 체크 및 Consumer pause/resume 적용
+	 *
+	 * @param listenerId Kafka Listener ID
+	 * @param accumulator 해당 토픽의 BatchAccumulator
+	 * @param isPausedGetter 현재 pause 상태 조회 함수
+	 * @param isPausedSetter pause 상태 설정 함수
+	 */
+	private void checkAndApplyBackpressure(
+		String listenerId,
+		BatchAccumulator<?> accumulator,
+		BooleanSupplier isPausedGetter,
+		Consumer<Boolean> isPausedSetter
+	) {
+		try {
+			double queueUsage = accumulator.getQueueUsageRatio();
+			boolean currentlyPaused = isPausedGetter.getAsBoolean();
+
+			MessageListenerContainer container =
+				kafkaListenerEndpointRegistry.getListenerContainer(listenerId);
+
+			if (container == null) {
+				log.warn("[{}] ListenerContainer not found, cannot apply backpressure", listenerId);
+				return;
+			}
+
+			// 임계값 초과 → Pause
+			if (!currentlyPaused && queueUsage >= pauseThreshold) {
+				container.pause();
+				isPausedSetter.accept(true);
+				log.warn("⏸️  PAUSED consumer [{}] - Queue usage: {:.1f}% >= {:.1f}% (threshold). " +
+					"Kafka consumption stopped to prevent message loss.",
+					listenerId, queueUsage * 100, pauseThreshold * 100);
+			}
+			// 여유 생김 → Resume
+			else if (currentlyPaused && queueUsage <= resumeThreshold) {
+				container.resume();
+				isPausedSetter.accept(false);
+				log.info("▶️  RESUMED consumer [{}] - Queue usage: {:.1f}% <= {:.1f}% (threshold). " +
+					"Kafka consumption restarted.",
+					listenerId, queueUsage * 100, resumeThreshold * 100);
+			}
+		} catch (Exception e) {
+			log.error("[{}] Failed to check and apply backpressure", listenerId, e);
 		}
 	}
 }

@@ -360,6 +360,30 @@ public class BatchAccumulator<T> {
 	}
 
 	/**
+	 * 현재 큐 사용률 반환 (0.0 ~ 1.0)
+	 * Kafka Consumer pause/resume 판단에 사용
+	 */
+	public double getQueueUsageRatio() {
+		return (double) queue.size() / queueCapacity;
+	}
+
+	/**
+	 * 큐가 임계값 이상으로 차 있는지 확인
+	 * @param threshold 임계값 (0.0 ~ 1.0, 예: 0.8 = 80%)
+	 * @return 임계값 이상이면 true
+	 */
+	public boolean isQueueOverThreshold(double threshold) {
+		return getQueueUsageRatio() >= threshold;
+	}
+
+	/**
+	 * 현재 큐 사이즈 반환
+	 */
+	public int getCurrentQueueSize() {
+		return queue.size();
+	}
+
+	/**
 	 * 5초마다 실행: 현재 누적된 처리량을 게이지에 업데이트
 	 * 1분마다: 누적 카운터를 0으로 리셋하여 새로운 1분 측정 시작
 	 */

@@ -75,6 +75,10 @@ app:
     worker-thread-count: 3        # 배치 flush 워커 스레드 수
     coordinator-thread-count: 1   # 배치 수집 코디네이터 스레드 수 (권장: 1, thread-safety 주의)
     worker-queue-capacity: 300    # 워커 작업 큐 용량 (메모리 누수 방지)
+  kafka:
+    backpressure:
+      pause-threshold: 0.80       # 큐 사용률 80% 이상 시 Consumer pause (메시지 유실 방지)
+      resume-threshold: 0.50      # 큐 사용률 50% 이하 시 Consumer resume (정상 소비 재개)
   web:
     url-no-logging:
       - /h2-console/**
