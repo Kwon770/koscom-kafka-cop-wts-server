@@ -35,7 +35,7 @@ spring:
     consumer:
       group-id: coin-wts-consumer
       enable-auto-commit: false
-      auto-offset-reset: latest   # earliest는 개발 시 과거 데이터 재처리로 큐 오버플로우 발생
+      auto-offset-reset: latest
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
       value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
       max-poll-records: 500       # 한 번에 가져올 최대 레코드 수 (배치 크기)

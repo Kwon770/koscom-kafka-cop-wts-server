@@ -37,7 +37,7 @@ spring:
     consumer:
       group-id: coin-wts-consumer-prod
       enable-auto-commit: false
-      auto-offset-reset: earliest
+      auto-offset-reset: latest
       ########################################
       max-poll-records: 100        # 메모리 안정화: Consumer 속도 제한
       fetch-min-size: 2048        # 최소 2KB 쌓여야 fetch
