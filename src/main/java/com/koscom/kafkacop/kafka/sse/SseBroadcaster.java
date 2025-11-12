@@ -62,7 +62,6 @@ public class SseBroadcaster {
 		for (SseEmitter emitter : emitters) {
 			try {
 				emitter.send(SseEmitter.event()
-					.name(topic)
 					.data(message));
 			} catch (IOException e) {
 				log.warn("Failed to send SSE message to client, removing emitter: {}", e.getMessage());
