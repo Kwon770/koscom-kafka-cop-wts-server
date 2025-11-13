@@ -77,6 +77,7 @@ public class MarketService {
 				ticker.getSignedChangeRate().floatValue(),
 				ticker.getSignedChangePrice().floatValue(),
 				ticker.getAccTradePrice().floatValue(),
+				ticker.getAccTradePrice24h().floatValue(),
 				ticker.getSourceCreatedAt()
 		);
 	}

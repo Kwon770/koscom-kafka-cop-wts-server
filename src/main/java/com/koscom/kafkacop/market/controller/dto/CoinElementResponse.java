@@ -10,6 +10,7 @@ public record CoinElementResponse(
 	Float changeRate,
 	Float changePrice,
 	Float accTradePrice,
+	Float accTradePrice24h,
 	LocalDateTime localDateTime
 ) {
 	public static CoinElementResponse of(
@@ -20,6 +21,7 @@ public record CoinElementResponse(
 		Float changeRate,
 		Float changePrice,
 		Float accTradePrice,
+		Float accTradePrice24h,
 		LocalDateTime localDateTime
 	) {
 		return new CoinElementResponse(
@@ -30,6 +32,7 @@ public record CoinElementResponse(
 			changeRate,
 			changePrice,
 			accTradePrice,
+			accTradePrice24h,
 			localDateTime
 		);
 	}
