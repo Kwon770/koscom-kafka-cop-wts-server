@@ -17,8 +17,7 @@ import java.time.LocalDateTime;
 @Table(
     name = "md_ticker",
     indexes = {
-        @Index(name = "ix_ticker_code", columnList = "code"),
-        @Index(name = "ix_ticker_updated", columnList = "updated_at")
+        @Index(name = "ix_ticker_market_time", columnList = "market_id, source_created_at DESC")
     }
 )
 @IdClass(TickerId.class)

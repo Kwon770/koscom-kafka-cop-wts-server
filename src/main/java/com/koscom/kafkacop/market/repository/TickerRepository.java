@@ -15,20 +15,21 @@ import java.util.Optional;
 public interface TickerRepository extends JpaRepository<Ticker, TickerId> {
 
     /**
-     * 마켓ID 리스트로 각 마켓의 최신 Ticker 조회
+     * 마켓ID 리스트로 각 마켓의 최신 Ticker 조회 (Window Function 사용)
+     * 성능 최적화: 서브쿼리 제거, ROW_NUMBER() 활용
      *
      * @param marketIds 마켓ID 리스트
      * @return 각 마켓의 최신 Ticker 리스트
      */
-    @Query("""
-        SELECT t FROM Ticker t
-        WHERE (t.marketId, t.sourceCreatedAt) IN (
-            SELECT t2.marketId, MAX(t2.sourceCreatedAt)
-            FROM Ticker t2
-            WHERE t2.marketId IN :marketIds
-            GROUP BY t2.marketId
-        )
-        """)
+    @Query(value = """
+        SELECT * FROM (
+            SELECT t.*,
+                   ROW_NUMBER() OVER (PARTITION BY t.market_id ORDER BY t.source_created_at DESC) as rn
+            FROM md_ticker t
+            WHERE t.market_id IN :marketIds
+        ) ranked
+        WHERE ranked.rn = 1
+        """, nativeQuery = true)
     List<Ticker> findLatestByMarketIds(@Param("marketIds") List<Integer> marketIds);
 
     /**

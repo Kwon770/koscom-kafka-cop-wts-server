@@ -56,20 +56,12 @@ public class MarketService {
 					Ticker ticker = tickerMap.get(market.getMarketId());
 					if (ticker == null) {
 						log.warn("No ticker found for market: {}", market.getMarketCode());
-						// Ticker가 없는 경우 기본값으로 응답 생성
-						return CoinElementResponse.of(
-								market.getMarketId(),
-								market.getMarketCode(),
-								market.getMarketCode(), // tickerName이 없으므로 code로 대체
-								ticker.getTradePrice().floatValue(),
-								ticker.getSignedChangeRate().floatValue(),
-								ticker.getSignedChangePrice().floatValue(),
-								ticker.getAccTradePrice().floatValue(),
-								ticker.getSourceCreatedAt()
-						);
+						// Ticker가 없는 경우 null 반환 (필터링됨)
+						return null;
 					}
 					return convertToResponse(market, ticker);
 				})
+				.filter(response -> response != null) // null 제거
 				.collect(Collectors.toList());
 	}
 
