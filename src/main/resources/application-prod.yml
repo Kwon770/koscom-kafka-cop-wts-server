@@ -39,30 +39,30 @@ spring:
       enable-auto-commit: false
       auto-offset-reset: latest
       ########################################
-      max-poll-records: 1000        # 메모리 안정화: Consumer 속도 제한
-      fetch-min-size: 2048        # 최소 2KB 쌓여야 fetch
-      fetch-max-wait: 1000        # 최대 1초 대기 (Consumer 속도 늦춤)
+      max-poll-records: 500        # 메모리 안정화: Consumer 속도 제한
+      fetch-min-size: 1            # 즉시 fetch
+      fetch-max-wait: 100          # 대기 최소화 (Consumer 속도 늦춤)
       ########################################
       properties:
         max.poll.interval.ms: 300000  # poll 간격 5분
     listener:
       type: batch                 # single → batch (배치 소비 패턴)
       ack-mode: MANUAL_IMMEDIATE  # 배치 처리 후 즉시 커밋
-      concurrency: 3
+      concurrency: 9              # Consumer 인스턴스 수 (토픽 파티션 수와 동일하게 설정)
 
 
 app:
   batch-accumulator:
-    batch-size: 1000               # 메모리 안정화: 배치 크기 감소
+    batch-size: 3000               # 메모리 안정화: 배치 크기 감소
     max-latency-ms: 100           # 배치 최대 대기시간 (ms)
-    queue-capacity: 200000        # 메모리 안정화: 큐 용량 절반으로 감소
-    worker-thread-count: 150       # Topic별 Worker 스레드 갯수
+    queue-capacity: 300000        # 메모리 안정화: 큐 용량 절반으로 감소
+    worker-thread-count: 30       # Topic별 Worker 스레드 갯수
     coordinator-thread-count: 1   # 배치 수집 코디네이터 스레드 수 (권장: 1)
-    worker-queue-capacity: 600    # 워커 작업 큐 용량 (메모리 누수 방지, 300배치 ≈ 120MB per topic)
+    worker-queue-capacity: 1500    # 워커 작업 큐 용량 (메모리 누수 방지, 300배치 ≈ 120MB per topic)
   kafka:
     backpressure:
-      pause-threshold: 0.80       # 큐 사용률 80% 이상 시 Consumer pause (메시지 유실 방지)
-      resume-threshold: 0.60      # 큐 사용률 50% 이하 시 Consumer resume (정상 소비 재개)
+      pause-threshold: 0.85       # 큐 사용률 80% 이상 시 Consumer pause (메시지 유실 방지)
+      resume-threshold: 0.50      # 큐 사용률 50% 이하 시 Consumer resume (정상 소비 재개)
 
 logging:
   pattern:
