@@ -220,9 +220,9 @@ public class CoinWtsListener {
 
 	/**
 	 * 주기적으로 모든 토픽의 백프레셔 상태를 체크하고 Consumer pause/resume 적용
-	 * 1초마다 실행
+	 * 0.05초마다 실행
 	 */
-	@Scheduled(fixedDelay = 1000)
+	@Scheduled(fixedDelay = 50)
 	public void monitorAndControlBackpressure() {
 		checkAndApplyBackpressure(
 			"ticker-basic-listener",
