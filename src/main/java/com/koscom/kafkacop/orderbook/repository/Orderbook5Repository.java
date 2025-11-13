@@ -14,12 +14,28 @@ import java.util.Optional;
 public interface Orderbook5Repository extends JpaRepository<Orderbook5, Orderbook5Id> {
 
     /**
+     * 마켓 ID로 최신 오더북 조회 (JOIN 없이 PK 인덱스 활용)
+     *
+     * @param marketId 마켓 ID
+     * @return 최신 오더북
+     */
+    @Query("""
+        SELECT o FROM Orderbook5 o
+        WHERE o.id.marketId = :marketId
+        ORDER BY o.id.orderbookDateTime DESC
+        LIMIT 1
+        """)
+    Optional<Orderbook5> findLatestByMarketId(@Param("marketId") Integer marketId);
+
+    /**
      * 거래소 코드와 마켓 코드로 최신 오더북 조회
+     * @deprecated 성능 이슈로 findLatestByMarketId 사용 권장
      *
      * @param exchangeCode 거래소 코드 (예: UPBIT)
      * @param code 마켓 코드 (예: KRW/BTC)
      * @return 최신 오더북
      */
+    @Deprecated
     @Query("""
         SELECT o FROM Orderbook5 o JOIN o.market m JOIN m.exchange e
         WHERE e.exchangeCode = :exchangeCode AND o.code = :code

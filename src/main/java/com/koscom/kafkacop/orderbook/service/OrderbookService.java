@@ -29,13 +29,19 @@ public class OrderbookService {
 
 	/**
 	 * 5호가 조회
+	 * 성능 최적화: Market 조회 → Orderbook5 조회 (2단계, JOIN 제거)
 	 *
 	 * @param exchangeCode 거래소 코드 (예: UPBIT)
 	 * @param marketCode 마켓 코드 (예: KRW/BTC)
 	 * @return 5호가 리스트 (ASK 5개 + BID 5개)
 	 */
 	public List<OrderbooksPriceDetailResponse> getOrderbooksPrice(String exchangeCode, String marketCode) {
-		Orderbook5 orderbook = orderbook5Repository.findLatestByExchangeCodeAndCode(exchangeCode, marketCode)
+		// 1단계: Market 조회 (ux_market 인덱스 활용)
+		Market market = marketRepository.findByExchangeCodeAndMarketCode(exchangeCode, marketCode)
+			.orElseThrow(() -> new IllegalArgumentException("Market not found for exchange: " + exchangeCode + ", market: " + marketCode));
+
+		// 2단계: Orderbook5 조회 (PK 인덱스 활용, JOIN 없음)
+		Orderbook5 orderbook = orderbook5Repository.findLatestByMarketId(market.getMarketId())
 			.orElseThrow(() -> new IllegalArgumentException("Orderbook not found for exchange: " + exchangeCode + ", market: " + marketCode));
 
 		List<OrderbooksPriceDetailResponse> result = new ArrayList<>();
