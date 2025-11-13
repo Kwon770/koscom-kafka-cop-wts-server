@@ -39,7 +39,7 @@ spring:
       enable-auto-commit: false
       auto-offset-reset: latest
       ########################################
-      max-poll-records: 500        # 메모리 안정화: Consumer 속도 제한
+      max-poll-records: 1000        # 메모리 안정화: Consumer 속도 제한
       fetch-min-size: 2048        # 최소 2KB 쌓여야 fetch
       fetch-max-wait: 1000        # 최대 1초 대기 (Consumer 속도 늦춤)
       ########################################
@@ -48,7 +48,7 @@ spring:
     listener:
       type: batch                 # single → batch (배치 소비 패턴)
       ack-mode: MANUAL_IMMEDIATE  # 배치 처리 후 즉시 커밋
-      concurrency: 2
+      concurrency: 3
 
 
 app:
@@ -56,7 +56,7 @@ app:
     batch-size: 1000               # 메모리 안정화: 배치 크기 감소
     max-latency-ms: 100           # 배치 최대 대기시간 (ms)
     queue-capacity: 200000        # 메모리 안정화: 큐 용량 절반으로 감소
-    worker-thread-count: 40       # Topic별 Worker 스레드 갯수
+    worker-thread-count: 150       # Topic별 Worker 스레드 갯수
     coordinator-thread-count: 1   # 배치 수집 코디네이터 스레드 수 (권장: 1)
     worker-queue-capacity: 600    # 워커 작업 큐 용량 (메모리 누수 방지, 300배치 ≈ 120MB per topic)
   kafka:
